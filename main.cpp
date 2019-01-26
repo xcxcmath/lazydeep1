@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 #include <iomanip>
 #include "lazy/Operator.hpp"
 #include "lazy/Variable.hpp"
@@ -7,29 +8,96 @@
 
 using namespace lazy;
 
+constexpr int TOTAL_SZ = 60'000;
+constexpr int TEST_SZ = 10'000;
+constexpr int PIXEL_SZ = 28 * 28;
+
+int images[TOTAL_SZ][PIXEL_SZ];
+int labels[TOTAL_SZ];
+int test_img[TEST_SZ][PIXEL_SZ];
+int test_lab[TEST_SZ];
+
+bool load_train(){
+    FILE *img_in = fopen("../examples/MNIST/train-images.idx3-ubyte", "rb");
+    FILE *lab_in = fopen("../examples/MNIST/train-labels.idx1-ubyte", "rb");
+
+    if(img_in == nullptr || lab_in == nullptr) return false;
+
+    for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
+    for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
+
+    for(int idx = 0 ; idx < TOTAL_SZ ; ++idx){
+        for(int p = 0 ; p < PIXEL_SZ ; ++p)
+            images[idx][p] = fgetc(img_in);
+        labels[idx] = fgetc(lab_in);
+    }
+
+    fclose(img_in);
+    fclose(lab_in);
+
+    return true;
+}
+
+bool load_test(){
+    FILE *img_in = fopen("../examples/MNIST/t10k-images.idx3-ubyte", "rb");
+    FILE *lab_in = fopen("../examples/MNIST/t10k-labels.idx1-ubyte", "rb");
+
+    if(img_in == nullptr || lab_in == nullptr) return false;
+
+    for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
+    for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
+
+    for(int idx = 0 ; idx < TEST_SZ ; ++idx){
+        for(int p = 0 ; p < PIXEL_SZ ; ++p)
+            test_img[idx][p] = fgetc(img_in);
+        test_lab[idx] = fgetc(lab_in);
+    }
+
+    fclose(img_in);
+    fclose(lab_in);
+
+    return true;
+}
+
+void build_train_input(Matrix<float>& input, Matrix<float>& sol, unsigned batch, unsigned batch_sz){
+    for(int i = 0; i < batch_sz; ++i){
+        for(int p = 0; p < PIXEL_SZ; ++p){
+            input(p, i) = (images[batch*batch_sz+i][p]/255.f);
+        }
+        sol(labels[batch*batch_sz+i], i) = 1.f;
+    }
+}
+
+void build_test_input(Matrix<float>& input, unsigned iter, unsigned test_sz){
+    for(int i = 0; i < test_sz; ++i){
+        for(int p = 0; p < PIXEL_SZ; ++p){
+            input(p, i) = (test_img[iter*100+i][p]/255.f);
+        }
+    }
+}
+
 int main() {
     /*
-     * 2-layer NN example (Rock scissors paper)
+     * 3-layer NN example (MNIST)
      */
-    constexpr unsigned ROCK = 0;
-    constexpr unsigned SCISSORS = 1;
-    constexpr unsigned PAPER = 2;
 
-    unsigned res[3];
-    res[ROCK] = PAPER;      // PAPER    wins ROCK
-    res[SCISSORS] = ROCK;   // ROCK     wins SCISSORS
-    res[PAPER] = SCISSORS;  // SCISSORS wins PAPER
+    std::cout << "Loading files..";
+    if(!load_train() || !load_test()){
+        std::cout << "failed\n";
+        return 0;
+    }
 
-    // Our goal is to make NN win on the RSP games
-    // when its opposite's hand is known
+    std::cout << "Finish\nInitializing network..";
 
     // hyper-parameters
-    constexpr unsigned middle = 20;
-    constexpr unsigned batch_sz = 5;
-    constexpr unsigned batch_iter = 30;
+    constexpr unsigned batch_sz = 100;
+    constexpr unsigned total_batch = TOTAL_SZ / batch_sz;
+    constexpr unsigned total_epoch = 15;
+    constexpr unsigned middle_layer = 256;
 
     /*
      * Construct NN Layers
+     * 784 -> 256 -> 256 -> 10
      */
 
     // Placeholder : to insert labels
@@ -37,68 +105,95 @@ int main() {
     auto t = make_placeholder<Matrix<float>>(); // solution label
 
     // Variables : to optimize (i.e. Weights in this example)
-    auto W1 = random_normal_matrix_variable<float>(middle, 3, 0, std::sqrt(2.f/3.f));
-    auto W2 = random_normal_matrix_variable<float>(3, middle, 0, std::sqrt(2.f/middle));
+    auto W1 = random_normal_matrix_variable<float>(middle_layer, PIXEL_SZ, 0.f, 0.01f);
+    auto W2 = random_normal_matrix_variable<float>(middle_layer, middle_layer, 0.f, 0.01f);
+    auto W3 = random_normal_matrix_variable<float>(10, middle_layer, 0.f, 0.01f);
 
     // Operands for middle layer
+    // ReLU Activation Function is used
     auto wx1 = dot_product(W1, x);
     auto z1 = unaryExpr(wx1, [](float f)->float{return f > 0 ? f : 0;},
             [](float f)->float{return f > 0;});
 
-    // Operands for output layer
     auto wx2 = dot_product(W2, z1);
-    auto y = softmax(wx2);
+    auto z2 = unaryExpr(wx2, [](float f)->float{return f > 0 ? f : 0;},
+            [](float f)->float{return f > 0;});
+
+    // Operands for output layer
+    auto wx3 = dot_product(W3, z2);
+    auto y = softmax(wx3);
     auto loss = cross_entropy(y, t); // scalar value; smaller is better
+
+    std::cout << "Finish\n\n";
 
     /*
      * Optimize NN
      * minimize loss value using Adam Optimizing Algorithm
      */
-    train::AdamOptimizer<Matrix<float>> opt(0.01);
+    train::AdamOptimizer<Matrix<float>> opt(0.001f);
     auto training = opt.minimize(loss);
 
-    std::random_device rd;
-    std::uniform_int_distribution<int> random_dist(0, 2);
+    Matrix<float> input(PIXEL_SZ, batch_sz);
 
-    for(unsigned i = 0; i < batch_iter; ++i){
+    std::cout << "Training Start\n";
 
-        Matrix<float> input = Matrix<float>::Zero(3, batch_sz);
-        Matrix<float> ans = Matrix<float>::Zero(3, batch_sz);
+    for(unsigned epoch = 0; epoch < total_epoch ; ++epoch){
+        std::cout << "Epoch " << std::setw(2) << (epoch+1) << " : ";
+        Matrix<float> total_cost = Matrix<float>::Zero(1, 1);
 
-        for(unsigned j = 0; j < batch_sz; ++j){
-            int test_in = random_dist(rd);
+        for(unsigned batch = 0; batch < total_batch ; ++batch){
+            Matrix<float> sol = Matrix<float>::Zero(10, batch_sz);
 
-            // ONE-HOT vectors
-            input(test_in, j) = 1.f;
-            ans(res[test_in], j) = 1.f;
+            // construct input and sol matrix
+            build_train_input(input, sol, batch, batch_sz);
+
+            // training
+            auto cost = training({{x, input}, {t, sol}});
+            total_cost = total_cost + cost;
         }
 
-        // train to derive (ans) from (input)
-        auto cost = training({{x, input}, {t, ans}});
-
-        if((i+1) % (batch_iter/10) == 0)
-            std::cout << "Batch " << std::setw(4) << (i+1) << " : " << cost << std::endl;
+        // Average cost during one epoch
+        total_cost /= total_batch;
+        std::cout << total_cost << '\n';
     }
+
+    std::cout << "\nTraining Finish\n\n";
 
     /*
      * Test NN
      */
-    for(unsigned i = 0; i < 3; ++i){
-        Matrix<float> input = Matrix<float>::Zero(3, 1);
-        input(i, 0) = 1.;
+    std::cout << "Test Start\n";
+
+    int total_correct = 0;
+    input = Matrix<float>::Zero(PIXEL_SZ, 100);
+
+    for(unsigned iter = 0; iter < 100; ++iter){
+        std::cout << "Test " << std::setw(3) << (iter+1) << " ";
+
+        int here = 0;
+
+        // construct input matrix
+        build_test_input(input, iter, 100);
         *x = input;
 
+        // evaluate
         auto ans = y->eval();
-        Eigen::Index r, c; ans.maxCoeff(&r, &c);
 
-        std::cout << "Test " << i << " : ";
-        if(r == res[i]){
-            std::cout << "  Correct (";
-        } else {
-            std::cout << "Incorrect (";
+        // check
+        for(int i = 0; i < 100; ++i){
+            Eigen::Index res, temp;
+            ans.col(i).maxCoeff(&res, &temp);
+
+            if((char)res == test_lab[iter*100+i]){
+                ++here;
+                ++total_correct;
+            }
         }
-        std::cout << std::setw(6) << (ans(res[i], 0) * 100) << " %)\n";
+
+        std::cout << std::setw(3) << here << "%\n";
     }
+
+    std::cout << "\nTest Finish (" << total_correct << "/" << TEST_SZ << ")\n";
 
     return 0;
 }

@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 include_directories(Eigen)
 
+add_compile_options(-O2)
+
 set(lz lazy/Operand.hpp lazy/Operator.hpp lazy/Variable.hpp lazy/Placeholder.hpp lazy/Constant.hpp lazy/train/Optimizer.hpp lazy/train/AdamOptimizer.hpp)
 
 add_executable(lazydeep1 main.cpp ${lz})

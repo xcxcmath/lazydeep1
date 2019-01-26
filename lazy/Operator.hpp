@@ -145,17 +145,17 @@ namespace lazy {
             const auto y = v.at(0)->eval();
             const auto ans = v.at(1)->eval();
             loss << (ans.cwiseProduct(y.unaryExpr(
-                    [](ScalarType x){return std::log(x);})).sum() * -1 / y.cols());
+                    [](ScalarType x){return std::log(x + ScalarType(1e-8));})).sum() * -1 / y.cols());
             return loss;
         });
 
         t->setDFunction([t, sol](const VecType &v) -> ValueType{
             const auto tm = t->eval();
-            return sol->eval().cwiseProduct(tm.unaryExpr([](ScalarType x){return -1/x;}))
+            return sol->eval().cwiseProduct(tm.unaryExpr([](ScalarType x){return -1/(x + ScalarType(1e-8));}))
                 * v.at(0)->diff()(0, 0) / tm.cols();
         });
         sol->setDFunction([t](const VecType &v) -> ValueType{
-            return t->eval().unaryExpr([](ScalarType x){return -std::log(x);}) * v.at(0)->diff()(0, 0);
+            return t->eval().unaryExpr([](ScalarType x){return -std::log(x + ScalarType(1e-8));}) * v.at(0)->diff()(0, 0);
         });
 
         return ret;
