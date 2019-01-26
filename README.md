@@ -3,8 +3,8 @@ LAZYDEEP!
 
 **WARNING**
 
-Merely compiling & executing main.cpp file cannot make sense..
+Merely compiling & executing main.cpp file would **NOT** work..
 
-Because the size of the example input files is so big that I decide not to contain them in this repo.
+The size of the example input files is so big that I decided not to contain them in this repo.
 
-Please download MNIST handwritten digits files on [here](http://yann.lecun.com/exdb/mnist/) and put them into `examples/MNIST` folder.
+Please download MNIST handwritten digits files by *Yann LeCun* on [here](http://yann.lecun.com/exdb/mnist/) and put them into `examples/MNIST` folder.
