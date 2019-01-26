@@ -1,0 +1,63 @@
+//
+// Created by bjk on 19. 1. 26.
+//
+
+#ifndef LAZYDEEP1_VARIABLE_HPP
+#define LAZYDEEP1_VARIABLE_HPP
+
+#include <random>
+#include "Operand.hpp"
+
+namespace lazy {
+    template<typename T>
+    class Variable : public Operand<T> {
+    public:
+        template<typename ...Types>
+        explicit Variable(Types ...args): Operand<T>(true){
+            this->m_value = T(args...);
+        }
+
+        Variable& operator=(const T& val){
+            this->reset_value();
+            this->m_value.emplace(val);
+            return *this;
+        }
+
+        T eval() override {
+            return this->m_value.value();
+        }
+    };
+
+    template<typename T, typename ...Types>
+    decltype(auto) make_variable(Types ...args){
+        return std::make_shared<Variable<T>>(args...);
+    }
+
+    template<typename T>
+    decltype(auto) zero_matrix_variable(Eigen::Index rows, Eigen::Index cols){
+        auto ret = make_variable<Matrix<T>>();
+        auto m = Matrix<T>::Zero(rows, cols);
+
+        *ret = m;
+        return ret;
+    }
+
+    template<typename T>
+    decltype(auto) random_normal_matrix_variable(Eigen::Index rows, Eigen::Index cols, T mean=0.0, T stddev=1.0) {
+        auto ret = make_variable<Matrix<T>>();
+        std::random_device rd;
+        std::mt19937 gen{rd()};
+        std::normal_distribution<T> nd(mean, stddev);
+
+        Matrix<T> m(rows, cols);
+        for(Eigen::Index i = 0; i < rows; ++i) {
+            for (Eigen::Index j = 0; j < cols; ++j)
+                m(i, j) = nd(gen);
+        }
+
+        *ret = m;
+        return ret;
+    }
+}
+
+#endif //LAZYDEEP1_VARIABLE_HPP
