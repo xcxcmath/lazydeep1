@@ -1,6 +1,9 @@
+#include <omp.h>
+
 #include <iostream>
 #include <cstdio>
 #include <iomanip>
+
 #include "lazy/Operator.hpp"
 #include "lazy/Variable.hpp"
 #include "lazy/Placeholder.hpp"
@@ -80,6 +83,11 @@ int main() {
     /*
      * 3-layer NN example (MNIST)
      */
+
+    // Multi-threading
+    // PLEASE CHANGE IT PROPERLY
+    Eigen::setNbThreads(4);
+    std::cout << Eigen::nbThreads() << " thread(s) ready\n";
 
     std::cout << "Loading files..";
     if(!load_train() || !load_test()){
