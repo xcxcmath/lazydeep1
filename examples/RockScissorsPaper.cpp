@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <iomanip>
-#include "../lazy/Operator.hpp"
+#include "../lazy/ops/Operator.hpp"
 #include "../lazy/Variable.hpp"
 #include "../lazy/Placeholder.hpp"
 #include "../lazy/train/AdamOptimizer.hpp"

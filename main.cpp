@@ -4,9 +4,11 @@
 #include <cstdio>
 #include <iomanip>
 
-#include "lazy/Operator.hpp"
+#include "lazy/ops/NN.hpp"
+
 #include "lazy/Variable.hpp"
 #include "lazy/Placeholder.hpp"
+
 #include "lazy/train/AdamOptimizer.hpp"
 
 using namespace lazy;
@@ -120,18 +122,15 @@ int main() {
     // Operands for middle layer
     // ReLU Activation Function is used
     auto wx1 = dot_product(W1, x);
-    auto z1 = unaryExpr(wx1, [](float f)->float{return f > 0 ? f : 0;},
-            [](float f)->float{return f > 0;});
+    auto z1 = nn::relu(wx1);
 
     auto wx2 = dot_product(W2, z1);
-    auto z2 = unaryExpr(wx2, [](float f)->float{return f > 0 ? f : 0;},
-            [](float f)->float{return f > 0;});
+    auto z2 = nn::relu(wx2);
 
     // Operands for output layer
     auto wx3 = dot_product(W3, z2);
-    auto y = softmax(wx3);
-    auto loss = cross_entropy(y, t); // scalar value; smaller is better
-
+    auto y = nn::colwise_softmax(wx3);
+    auto loss = nn::col_batch_cross_entropy(y, t, 1e-8f); // scalar value; smaller is better
     std::cout << "Finish\n\n";
 
     /*
@@ -170,15 +169,12 @@ int main() {
     /*
      * Test NN
      */
-    std::cout << "Test Start\n";
+    std::cout << "Test Start..\n";
 
     int total_correct = 0;
     input = Matrix<float>::Zero(PIXEL_SZ, 100);
 
     for(unsigned iter = 0; iter < 100; ++iter){
-        std::cout << "Test " << std::setw(3) << (iter+1) << " ";
-
-        int here = 0;
 
         // construct input matrix
         build_test_input(input, iter, 100);
@@ -193,15 +189,12 @@ int main() {
             ans.col(i).maxCoeff(&res, &temp);
 
             if((char)res == test_lab[iter*100+i]){
-                ++here;
                 ++total_correct;
             }
         }
-
-        std::cout << std::setw(3) << here << "%\n";
     }
 
-    std::cout << "\nTest Finish (" << total_correct << "/" << TEST_SZ << ")\n";
+    std::cout << "Finish (" << total_correct << "/" << TEST_SZ << ")\n";
 
     return 0;
 }
