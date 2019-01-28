@@ -24,10 +24,6 @@ namespace lazy {
 
         }
 
-        void setDFunction(typename Operand<T>::Function df) override{
-
-        }
-
         void reset_value() override{
 
         }

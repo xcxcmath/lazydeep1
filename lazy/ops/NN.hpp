@@ -33,12 +33,12 @@ namespace lazy::nn {
         LAZY_TYPEDEF_OPERATOR(T);
 
         auto ret = make_operand<ValueType>();
-        ret->getPreOperand() = {t};
-        t->getPostOperand() = {ret};
+        ret->getPreOperand().insert({t});
+
 
         if(axis == input_type::colwise) {
-            ret->setFunction([](const VecType &v) -> ValueType {
-                const auto& m = v.at(0)->eval();
+            ret->setFunction([t]() -> ValueType {
+                const auto& m = t->eval();
                 const auto ex = (m.rowwise() - m.colwise().maxCoeff())
                         .unaryExpr([](ScalarType x) { return std::exp(x); });
                 const auto ex_sum = ex.colwise().sum()
@@ -46,17 +46,17 @@ namespace lazy::nn {
                         .row(0).asDiagonal();
                 return ex * ex_sum;
             });
-            t->setDFunction([](const VecType &v) -> ValueType {
-                const auto& m = v.at(0)->eval();
-                const auto& d = v.at(0)->diff();
+            t->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+                const auto& m = ret->eval();
+                const auto& d = ret->diff(E);
                 const auto colwise_prod_sum = m.cwiseProduct(d).colwise().sum();
                 const auto d_minus_sum = d.rowwise() - colwise_prod_sum;
                 return d_minus_sum.cwiseProduct(m);
-            });
+            };
         }
         else {
-            ret->setFunction([](const VecType &v) -> ValueType {
-                const auto& m = v.at(0)->eval();
+            ret->setFunction([t]() -> ValueType {
+                const auto& m = t->eval();
                 const auto ex = (m.colwise() - m.rowwise().maxCoeff())
                         .unaryExpr([](ScalarType x) { return std::exp(x); });
                 const auto ex_sum = ex.rowwise().sum()
@@ -64,43 +64,14 @@ namespace lazy::nn {
                         .col(0).asDiagonal();
                 return ex_sum * ex;
             });
-            t->setDFunction([](const VecType &v) -> ValueType {
-                const auto& m = v.at(0)->eval();
-                const auto& d = v.at(0)->diff();
+            t->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+                const auto& m = ret->eval();
+                const auto& d = ret->diff(E);
                 const auto rowwise_prod_sum = m.cwiseProduct(d).rowwise().sum();
                 const auto d_minus_sum = d.colwise() - rowwise_prod_sum;
                 return d_minus_sum.cwiseProduct(m);
-            });
+            };
         }
-
-        return ret;
-    }
-
-    template<typename T>
-    [[deprecated]] decltype(auto) colwise_softmax
-            (const T &t){
-        LAZY_TYPEDEF_OPERATOR(T);
-
-        auto ret = make_operand<ValueType>();
-        ret->getPreOperand() = {t};
-        t->getPostOperand() = {ret};
-
-        ret->setFunction([](const VecType &v) -> ValueType{
-            const auto m = v.at(0)->eval();
-            const auto ex = (m.rowwise() - m.colwise().maxCoeff())
-                    .unaryExpr([](ScalarType x){return std::exp(x);});
-            const auto ex_sum = ex.colwise().sum()
-                    .unaryExpr([](ScalarType x){return std::pow(x, static_cast<ScalarType>(-1));})
-                    .row(0).asDiagonal();
-            return ex * ex_sum;
-        });
-        t->setDFunction([ret](const VecType &v) -> ValueType{
-            const auto m = ret->eval();
-            const auto d = v.at(0)->diff();
-            const auto colwise_prod_sum = m.cwiseProduct(d).colwise().sum();
-            const auto d_minus_sum = d.rowwise() - colwise_prod_sum;
-            return d_minus_sum.cwiseProduct(m);
-        });
 
         return ret;
     }
@@ -115,51 +86,6 @@ namespace lazy::nn {
         }
 
         // otherwise, rowwise input
-
-        return reduce_mean(reduce_sum(scalar_product(hadamard_product(sol, math::log(scalar_plus(t, eps))), -1.f), reduce_to::column), reduce_to::row);
-    }
-
-    template<typename T1, typename T2, typename T3>
-    [[deprecated]] decltype(auto) col_batch_cross_entropy
-            (const T1 &t, const T2 &sol, T3 eps){
-        LAZY_TYPEDEF_OPERATOR(T1);
-
-        return reduce_mean(reduce_sum(scalar_product(hadamard_product(sol, math::log(scalar_plus(t, eps))), -1.f), reduce_to::row), reduce_to::column);
-
-        // The source code below is older version of cross entropy
-
-        /*
-        auto ret = make_operand<ValueType>();
-        ret->getPreOperand() = {t, sol};
-        t->getPostOperand() = {ret};
-        sol->getPostOperand() = {ret};
-
-        ret->setFunction([](const VecType &v) -> ValueType{
-            ValueType loss(1, 1);
-            const auto y = v.at(0)->eval();
-            const auto ans = v.at(1)->eval();
-            loss << (ans.cwiseProduct(y.unaryExpr(
-                    [](ScalarType x){return std::log(x + ScalarType(1e-8));})).sum() * -1 / y.cols());
-            return loss;
-        });
-
-        t->setDFunction([t, sol](const VecType &v) -> ValueType{
-            const auto tm = t->eval();
-            return sol->eval().cwiseProduct(tm.unaryExpr([](ScalarType x){return -1/(x + ScalarType(1e-8));}))
-                   * v.at(0)->diff()(0, 0) / tm.cols();
-        });
-        sol->setDFunction([t](const VecType &v) -> ValueType{
-            return t->eval().unaryExpr([](ScalarType x){return -std::log(x + ScalarType(1e-8));}) * v.at(0)->diff()(0, 0);
-        });
-
-        return ret;
-         */
-    }
-
-    template<typename T1, typename T2, typename T3>
-    [[deprecated]] decltype(auto) row_batch_cross_entropy
-            (const T1 &t, const T2 &sol, T3 eps){
-        LAZY_TYPEDEF_OPERATOR(T1);
 
         return reduce_mean(reduce_sum(scalar_product(hadamard_product(sol, math::log(scalar_plus(t, eps))), -1.f), reduce_to::column), reduce_to::row);
     }

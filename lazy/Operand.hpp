@@ -10,7 +10,8 @@
 #include <algorithm>
 #include <functional>
 #include <optional>
-#include <vector>
+#include <set>
+#include <map>
 
 namespace lazy {
     template<typename T>
@@ -21,51 +22,60 @@ namespace lazy {
     public:
         using ValueType = T;
         using Pointer = std::shared_ptr<Operand<T>>;
-        using PointerVec = std::vector<Pointer>;
-        using Function = std::optional<std::function<T(const PointerVec&)>>;
+        using Function = std::function<T()>;
+        using DFunction = std::function<T(const Pointer&)>;
+        using PointerMap = std::map<Pointer, DFunction>;
+        using PointerSet = std::set<Pointer>;
 
         explicit Operand()
-        : m_pre(), m_post(),
-        m_f(std::nullopt), m_df(std::nullopt),
+        : m_f([](){return T();}),
+        m_pre(), m_post(),
         m_value(std::nullopt), m_delta(std::nullopt),
-        m_optimizable(false){
-            resetDFunction();
+        m_optimizable(false) {
+
         }
 
         virtual const T& eval(){
-            return m_value.has_value() ? m_value.value() : m_value.emplace(m_f.value()(m_pre));
+            return m_value.has_value() ? m_value.value() : m_value.emplace(m_f());
         }
 
-        virtual const T& diff(){
-            return m_delta.has_value() ? m_delta.value() : m_delta.emplace(m_df.value()(m_post));
+        virtual const T& diff(const Pointer& E){
+            if(m_delta.has_value())
+                return m_delta.value();
+
+            const T& val = eval();
+            m_delta = T::Zero(val.rows(), val.cols());
+
+            if(m_post.empty()){
+                if(E.get() == this){
+                    m_delta = T::Ones(val.rows(), val.cols());
+                }
+
+                return m_delta.value();
+            }
+
+            for(const auto& [ptr, df]: m_post){
+                m_delta = m_delta.value() + df(E);
+            }
+
+            return m_delta.value();
         }
 
-        PointerVec& getPreOperand() {
+        PointerSet& getPreOperand() {
             return m_pre;
         }
-        const PointerVec& getPreOperand() const {
+        const PointerSet& getPreOperand() const {
             return m_pre;
         }
-        PointerVec& getPostOperand() {
+        PointerMap& getPostOperand() {
             return m_post;
         }
-        const PointerVec& getPostOperand() const {
+        const PointerMap& getPostOperand() const {
             return m_post;
         }
 
         virtual void setFunction(Function f){
             m_f = std::move(f);
-        }
-
-        virtual void setDFunction(Function df){
-            m_df = std::move(df);
-        }
-
-        void resetDFunction() {
-            m_df = [this](const PointerVec&){
-                auto val = eval();
-                return T::Ones(val.rows(), val.cols());
-            };
         }
 
         virtual void reset_value(){
@@ -74,7 +84,7 @@ namespace lazy {
                 if(m_post.empty()){
                     reset_delta();
                 } else {
-                    for (auto &p: m_post) p->reset_value();
+                    for (auto &[ptr, _]: m_post) ptr->reset_value();
                 }
             }
         }
@@ -91,18 +101,19 @@ namespace lazy {
         }
 
     protected:
-        PointerVec m_pre, m_post;
-        Function m_f, m_df;
+        Function m_f;
+        PointerSet m_pre;
+        PointerMap m_post;
+
         std::optional<T> m_value, m_delta;
 
         const bool m_optimizable;
 
         explicit Operand(bool optimizable)
-                : m_pre(), m_post(),
-                  m_f(std::nullopt), m_df(std::nullopt),
+                : m_post(),
                   m_value(std::nullopt), m_delta(std::nullopt),
                   m_optimizable(optimizable){
-            resetDFunction();
+
         }
     };
 

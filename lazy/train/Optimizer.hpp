@@ -56,7 +56,7 @@ namespace lazy::train {
 
             VariableMap var = searchVariables(target);
             for(auto& [ptr, value]: var){
-                value = ptr->diff();
+                value = ptr->diff(target);
             }
             return var;
         }
