@@ -23,7 +23,7 @@ namespace lazy {
             return *this;
         }
 
-        T eval() override {
+        const T& eval() override {
             return this->m_value.value();
         }
     };

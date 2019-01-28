@@ -32,15 +32,11 @@ namespace lazy {
             resetDFunction();
         }
 
-        virtual T eval(){
-            if(m_value.has_value())
-                return m_value.value();
-
-            m_value = m_f.value()(m_pre);
-            return m_value.value();
+        virtual const T& eval(){
+            return m_value.has_value() ? m_value.value() : m_value.emplace(m_f.value()(m_pre));
         }
 
-        virtual T diff(){
+        virtual const T& diff(){
             return m_delta.has_value() ? m_delta.value() : m_delta.emplace(m_df.value()(m_post));
         }
 

@@ -129,8 +129,8 @@ int main() {
 
     // Operands for output layer
     auto wx3 = dot_product(W3, z2);
-    auto y = nn::colwise_softmax(wx3);
-    auto loss = nn::col_batch_cross_entropy(y, t, 1e-8f); // scalar value; smaller is better
+    auto y = nn::softmax(wx3, nn::input_type::colwise);
+    auto loss = nn::cross_entropy(y, t, nn::input_type::colwise, 1e-8f); // scalar value; smaller is better
     std::cout << "Finish\n\n";
 
     /*
@@ -181,7 +181,7 @@ int main() {
         *x = input;
 
         // evaluate
-        auto ans = y->eval();
+        const auto& ans = y->eval();
 
         // check
         for(int i = 0; i < 100; ++i){

@@ -16,12 +16,8 @@ namespace lazy {
             this->m_value.emplace(args...);
         }
 
-        T eval() override {
+        const T& eval() override {
             return this->m_value.value();
-        }
-
-        T diff() override {
-            return T();
         }
 
         void setFunction(typename Operand<T>::Function f) override{
