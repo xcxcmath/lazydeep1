@@ -23,7 +23,7 @@ namespace lazy {
      */
 
     template<typename T, typename F1, typename F2>
-    decltype(auto) unaryExpr
+    [[nodiscard]] decltype(auto) unaryExpr
             (const T &t, const F1 &func, const F2 &df){
         LAZY_TYPEDEF_OPERATOR(T);
 
@@ -45,7 +45,7 @@ namespace lazy {
      */
 
     template<typename T1, typename T2>
-    decltype(auto) colwise_plus
+    [[nodiscard]] decltype(auto) colwise_plus
             (const T1 &t1, const T2 &vec){
         LAZY_TYPEDEF_OPERATOR(T1);
 
@@ -66,7 +66,7 @@ namespace lazy {
     }
 
     template<typename T1, typename T2>
-    decltype(auto) rowwise_plus
+    [[nodiscard]] decltype(auto) rowwise_plus
             (const T1 &t1, const T2 &vec){
         LAZY_TYPEDEF_OPERATOR(T1);
 
@@ -87,7 +87,7 @@ namespace lazy {
     }
 
     template<typename T1, typename T2>
-    decltype(auto) scalar_plus
+    [[nodiscard]] decltype(auto) scalar_plus
             (const T1 &t1, const T2 &constant){
 
         LAZY_TYPEDEF_OPERATOR(T1);
@@ -102,7 +102,7 @@ namespace lazy {
      */
 
     template<typename T1, typename T2>
-    decltype(auto) scalar_product
+    [[nodiscard]] decltype(auto) scalar_product
             (const T1 &t1, const T2 &constant){
 
         LAZY_TYPEDEF_OPERATOR(T1);
@@ -113,7 +113,7 @@ namespace lazy {
     }
 
     template<typename T1, typename T2>
-    decltype(auto) dot_product
+    [[nodiscard]] decltype(auto) dot_product
             (const T1 &t1, const T2 &t2){
         LAZY_TYPEDEF_OPERATOR(T1);
 
@@ -134,7 +134,7 @@ namespace lazy {
     }
 
     template<typename T1, typename T2>
-    decltype(auto) hadamard_product
+    [[nodiscard]] decltype(auto) hadamard_product
             (const T1 &t1, const T2 &t2){
         LAZY_TYPEDEF_OPERATOR(T1);
 
@@ -165,7 +165,7 @@ namespace lazy {
     };
 
     template<typename T>
-    decltype(auto) reduce_sum
+    [[nodiscard]] decltype(auto) reduce_sum
             (const T& t, reduce_to axis){
         LAZY_TYPEDEF_OPERATOR(T);
 
@@ -197,7 +197,7 @@ namespace lazy {
     }
 
     template<typename T>
-    decltype(auto) reduce_mean
+    [[nodiscard]] decltype(auto) reduce_mean
             (const T& t, reduce_to axis){
         LAZY_TYPEDEF_OPERATOR(T);
         auto ret = make_operand<ValueType>();

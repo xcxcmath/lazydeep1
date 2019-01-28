@@ -17,10 +17,10 @@ constexpr int TOTAL_SZ = 60'000;
 constexpr int TEST_SZ = 10'000;
 constexpr int PIXEL_SZ = 28 * 28;
 
-int images[TOTAL_SZ][PIXEL_SZ];
-int labels[TOTAL_SZ];
-int test_img[TEST_SZ][PIXEL_SZ];
-int test_lab[TEST_SZ];
+unsigned char images[TOTAL_SZ][PIXEL_SZ];
+unsigned char labels[TOTAL_SZ];
+unsigned char test_img[TEST_SZ][PIXEL_SZ];
+unsigned char test_lab[TEST_SZ];
 
 bool load_train(){
     FILE *img_in = fopen("../examples/MNIST/train-images.idx3-ubyte", "rb");

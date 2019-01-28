@@ -9,7 +9,7 @@
 
 namespace lazy::math {
     template<typename T>
-    decltype(auto) exp
+    [[nodiscard]] decltype(auto) exp
             (const T &t){
         LAZY_TYPEDEF_OPERATOR(T);
 
@@ -19,7 +19,7 @@ namespace lazy::math {
     }
 
     template<typename T>
-    decltype(auto) log
+    [[nodiscard]] decltype(auto) log
             (const T &t){
         LAZY_TYPEDEF_OPERATOR(T);
 

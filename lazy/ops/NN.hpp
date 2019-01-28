@@ -18,7 +18,7 @@ namespace lazy::nn {
      * Activation Functions
      */
     template<typename T>
-    decltype(auto) relu
+    [[nodiscard]] decltype(auto) relu
             (const T &t){
         LAZY_TYPEDEF_OPERATOR(T);
 
@@ -28,7 +28,7 @@ namespace lazy::nn {
     }
 
     template<typename T>
-    decltype(auto) softmax
+    [[nodiscard]] decltype(auto) softmax
             (const T &t, input_type axis){
         LAZY_TYPEDEF_OPERATOR(T);
 
@@ -77,7 +77,7 @@ namespace lazy::nn {
     }
 
     template<typename T1, typename T2, typename T3>
-    decltype(auto) cross_entropy
+    [[nodiscard]] decltype(auto) cross_entropy
             (const T1 &t, const T2 &sol, input_type axis, T3 eps){
         LAZY_TYPEDEF_OPERATOR(T1);
 

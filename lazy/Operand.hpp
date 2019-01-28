@@ -30,7 +30,7 @@ namespace lazy {
         explicit Operand()
         : m_f([](){return T();}),
         m_pre(), m_post(),
-        m_value(std::nullopt), m_delta(std::nullopt),
+        m_value(std::nullopt), m_delta(),
         m_optimizable(false) {
 
         }
@@ -40,25 +40,27 @@ namespace lazy {
         }
 
         virtual const T& diff(const Pointer& E){
-            if(m_delta.has_value())
-                return m_delta.value();
+            if(auto it = m_delta.find(E); it != m_delta.end()){
+                return m_delta.at(E);
+            }
 
+            auto& cache = m_delta[E];
             const T& val = eval();
-            m_delta = T::Zero(val.rows(), val.cols());
+            cache = T::Zero(val.rows(), val.cols());
 
             if(m_post.empty()){
                 if(E.get() == this){
-                    m_delta = T::Ones(val.rows(), val.cols());
+                    cache = T::Ones(val.rows(), val.cols());
                 }
 
-                return m_delta.value();
+                return cache;
             }
 
             for(const auto& [ptr, df]: m_post){
-                m_delta = m_delta.value() + df(E);
+                cache = cache + df(E);
             }
 
-            return m_delta.value();
+            return cache;
         }
 
         PointerSet& getPreOperand() {
@@ -90,8 +92,8 @@ namespace lazy {
         }
 
         virtual void reset_delta(){
-            if(m_delta.has_value()){
-                m_delta.reset();
+            if(!m_delta.empty()){
+                m_delta.clear();
                 for(auto& p: m_pre) p->reset_delta();
             }
         }
@@ -105,13 +107,14 @@ namespace lazy {
         PointerSet m_pre;
         PointerMap m_post;
 
-        std::optional<T> m_value, m_delta;
+        std::optional<T> m_value;
+        std::map<Pointer, T> m_delta;
 
         const bool m_optimizable;
 
         explicit Operand(bool optimizable)
                 : m_post(),
-                  m_value(std::nullopt), m_delta(std::nullopt),
+                  m_value(std::nullopt), m_delta(),
                   m_optimizable(optimizable){
 
         }
