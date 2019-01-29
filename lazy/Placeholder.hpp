@@ -15,10 +15,11 @@ namespace lazy {
 
         }
 
-        Placeholder& operator=(const T& val){
-            this->reset_value();
-            this->m_value.emplace(val);
-            return *this;
+        static void applyPlaceholders(const std::map<std::shared_ptr<Placeholder<T>>, T>& mp){
+            for(const auto& [ptr, value] : mp){
+                ptr->reset_value();
+                ptr->m_value.emplace(value);
+            }
         }
     };
 

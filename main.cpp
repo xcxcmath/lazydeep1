@@ -1,8 +1,8 @@
 #include <omp.h>
 
 #include <iostream>
-#include <cstdio>
 #include <iomanip>
+#include <fstream>
 
 #include "lazy/ops/NN.hpp"
 
@@ -12,6 +12,7 @@
 #include "lazy/train/AdamOptimizer.hpp"
 
 using namespace lazy;
+using Mat = Matrix<float>;
 
 constexpr Index TOTAL_SZ = 60'000;
 constexpr Index TEST_SZ = 10'000;
@@ -22,70 +23,18 @@ unsigned char labels[TOTAL_SZ];
 unsigned char test_img[TEST_SZ][PIXEL_SZ];
 unsigned char test_lab[TEST_SZ];
 
-bool load_train(){
-    FILE *img_in = fopen("../examples/MNIST/train-images.idx3-ubyte", "rb");
-    FILE *lab_in = fopen("../examples/MNIST/train-labels.idx1-ubyte", "rb");
+bool load_train();
+bool load_test();
 
-    if(img_in == nullptr || lab_in == nullptr) return false;
-
-    for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
-    for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
-
-    for(Index idx = 0 ; idx < TOTAL_SZ ; ++idx){
-        for(Index p = 0 ; p < PIXEL_SZ ; ++p)
-            images[idx][p] = fgetc(img_in);
-        labels[idx] = fgetc(lab_in);
-    }
-
-    fclose(img_in);
-    fclose(lab_in);
-
-    return true;
-}
-
-bool load_test(){
-    FILE *img_in = fopen("../examples/MNIST/t10k-images.idx3-ubyte", "rb");
-    FILE *lab_in = fopen("../examples/MNIST/t10k-labels.idx1-ubyte", "rb");
-
-    if(img_in == nullptr || lab_in == nullptr) return false;
-
-    for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
-    for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
-
-    for(Index idx = 0 ; idx < TEST_SZ ; ++idx){
-        for(Index p = 0 ; p < PIXEL_SZ ; ++p)
-            test_img[idx][p] = fgetc(img_in);
-        test_lab[idx] = fgetc(lab_in);
-    }
-
-    fclose(img_in);
-    fclose(lab_in);
-
-    return true;
-}
-
-void build_train_input(Matrix<float>& input, Matrix<float>& sol, Index batch, Index batch_sz){
-    for(Index i = 0; i < batch_sz; ++i){
-        for(Index p = 0; p < PIXEL_SZ; ++p){
-            input(p, i) = (images[batch*batch_sz+i][p]/255.f);
-        }
-        sol(labels[batch*batch_sz+i], i) = 1.f;
-    }
-}
-
-void build_test_input(Matrix<float>& input, Matrix<float>& sol, Index iter, Index test_sz){
-    for(Index i = 0; i < test_sz; ++i){
-        for(Index p = 0; p < PIXEL_SZ; ++p){
-            input(p, i) = (test_img[iter*test_sz+i][p]/255.f);
-        }
-        sol(test_lab[iter*test_sz+i], i) = 1.f;
-    }
-}
+void build_train_input(Mat& input, Mat& sol, Index batch, Index batch_sz);
+void build_test_input(Mat& input, Mat& sol, Index iter, Index test_sz);
 
 int main() {
     /*
      * 3-layer NN example (MNIST)
      */
+
+    std::ios::sync_with_stdio(false);
 
     // Multi-threading
     // PLEASE CHANGE IT PROPERLY
@@ -112,8 +61,8 @@ int main() {
      */
 
     // Placeholder : to insert labels
-    auto x = make_placeholder<Matrix<float>>(); // input
-    auto t = make_placeholder<Matrix<float>>(); // solution label
+    auto x = make_placeholder<Mat>(); // input
+    auto t = make_placeholder<Mat>(); // solution label
 
     // Variables : to optimize (i.e. Weights in this example)
     auto W1 = random_normal_matrix_variable<float>(middle_layer, PIXEL_SZ, 0.f, 0.01f);
@@ -144,19 +93,19 @@ int main() {
      * Optimize NN
      * minimize loss value using Adam Optimizing Algorithm
      */
-    train::AdamOptimizer<Matrix<float>> opt(0.001f);
+    train::AdamOptimizer<Mat> opt(0.001f);
     auto training = opt.minimize(loss);
 
-    Matrix<float> input(PIXEL_SZ, batch_sz);
+    Mat input(PIXEL_SZ, batch_sz);
 
     std::cout << "Training Start\n";
 
     for(unsigned epoch = 0; epoch < total_epoch ; ++epoch){
         std::cout << "Epoch " << std::setw(2) << (epoch+1) << " : ";
-        Matrix<float> total_cost = Matrix<float>::Zero(1, 1);
+        Mat total_cost = Mat::Zero(1, 1);
 
         for(Index batch = 0; batch < total_batch ; ++batch){
-            Matrix<float> sol = Matrix<float>::Zero(10, batch_sz);
+            Mat sol = Mat::Zero(10, batch_sz);
 
             // construct input and sol matrix
             build_train_input(input, sol, batch, batch_sz);
@@ -179,14 +128,13 @@ int main() {
     std::cout << "Test Start..\n";
 
     int total_correct = 0;
-    input = Matrix<float>::Zero(PIXEL_SZ, 100);
+    input = Mat::Zero(PIXEL_SZ, 100);
 
     for(Index iter = 0; iter < 100; ++iter){
         // construct input
-        Matrix<float> sol = Matrix<float>::Zero(10, 100);
+        Mat sol = Mat::Zero(10, 100);
         build_test_input(input, sol, iter, 100);
-        *x = input;
-        *t = sol;
+        Placeholder<Mat>::applyPlaceholders({{x, input}, {t, sol}});
 
         // evaluate
         const auto& res = corr->eval();
@@ -196,4 +144,88 @@ int main() {
     std::cout << "Finish (" << total_correct << "/" << TEST_SZ << ")\n";
 
     return 0;
+}
+
+/*
+ * MNIST Loader
+ */
+
+bool load_train(){
+    std::ifstream img_in("../examples/MNIST/train-images.idx3-ubyte", std::ios::binary);
+    std::ifstream lab_in("../examples/MNIST/train-labels.idx1-ubyte", std::ios::binary);
+
+    if(!img_in.is_open() || !lab_in.is_open()) return false;
+
+    char temp[16];
+    img_in.read(temp, 16);
+    if(auto r = img_in.gcount(); r != 16){
+        std::cout << "something wrong with train temp " << r << '\n';
+    }
+    lab_in.read(temp, 8);
+    if(auto r = lab_in.gcount(); r != 8){
+        std::cout << "something wrong with train temp " << r << '\n';
+    }
+
+    img_in.read(reinterpret_cast<char*>(images), TOTAL_SZ * PIXEL_SZ);
+    if(auto r = img_in.gcount(); r != TOTAL_SZ * PIXEL_SZ){
+        std::cout << "something wrong with train image " << r << '\n';
+        return false;
+    }
+
+    lab_in.read(reinterpret_cast<char*>(labels), TOTAL_SZ);
+    if(auto r = lab_in.gcount(); r != TOTAL_SZ){
+        std::cout << "something wrong with train label " << r << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+bool load_test(){
+    std::ifstream img_in("../examples/MNIST/t10k-images.idx3-ubyte", std::ios::binary);
+    std::ifstream lab_in("../examples/MNIST/t10k-labels.idx1-ubyte", std::ios::binary);
+
+    if(!img_in.is_open() || !lab_in.is_open()) return false;
+
+    char temp[16];
+    img_in.read(temp, 16);
+    if(auto r = img_in.gcount(); r != 16){
+        std::cout << "something wrong with test temp " << r << '\n';
+    }
+    lab_in.read(temp, 8);
+    if(auto r = lab_in.gcount(); r != 8){
+        std::cout << "something wrong with test temp " << r << '\n';
+    }
+
+    img_in.read(reinterpret_cast<char*>(test_img), TEST_SZ * PIXEL_SZ);
+    if(auto r = img_in.gcount(); r != TEST_SZ * PIXEL_SZ){
+        std::cout << "something wrong with test image " << r << '\n';
+        return false;
+    }
+
+    lab_in.read(reinterpret_cast<char*>(test_lab), TEST_SZ);
+    if(auto r = lab_in.gcount(); r != TEST_SZ){
+        std::cout << "something wrong with test label " << r << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+void build_train_input(Mat& input, Mat& sol, Index batch, Index batch_sz){
+    for(Index i = 0; i < batch_sz; ++i){
+        for(Index p = 0; p < PIXEL_SZ; ++p){
+            input(p, i) = (images[batch*batch_sz+i][p]/255.f);
+        }
+        sol(labels[batch*batch_sz+i], i) = 1.f;
+    }
+}
+
+void build_test_input(Mat& input, Mat& sol, Index iter, Index test_sz){
+    for(Index i = 0; i < test_sz; ++i){
+        for(Index p = 0; p < PIXEL_SZ; ++p){
+            input(p, i) = (test_img[iter*test_sz+i][p]/255.f);
+        }
+        sol(test_lab[iter*test_sz+i], i) = 1.f;
+    }
 }

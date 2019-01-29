@@ -53,11 +53,11 @@ namespace lazy::train {
             };
         }
 
-        virtual VariableMap computeGradients(const OperandPtrType& target, PlaceholderMap& ph, const VariableSet& var_list){
-            applyPlaceholders(ph);
+        virtual VariableMap computeGradients(const OperandPtrType& target, const PlaceholderMap& ph, const VariableSet& var_list){
+            Placeholder<T>::applyPlaceholders(ph);
 
             VariableMap var_map;
-            for(auto& ptr: var_list){
+            for(const auto& ptr: var_list){
                 var_map[ptr] = ptr->diff(target);
             }
             return var_map;
@@ -70,12 +70,6 @@ namespace lazy::train {
 
     protected:
         Scalar m_lr;
-
-        void applyPlaceholders(PlaceholderMap& ph){
-            for(auto& [ptr, value]: ph){
-                *ptr = value;
-            }
-        }
 
         VariableSet searchVariables(const OperandPtrType& operand){
             VariableSet ret;
