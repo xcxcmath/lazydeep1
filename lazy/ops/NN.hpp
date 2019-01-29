@@ -34,7 +34,7 @@ namespace lazy::nn {
 
         auto ret = make_operand<ValueType>();
         ret->getPreOperand().insert({t});
-
+        t->getPostOperand().insert({ret});
 
         if(axis == input_type::colwise) {
             ret->setFunction([t]() -> ValueType {
@@ -46,7 +46,8 @@ namespace lazy::nn {
                         .row(0).asDiagonal();
                 return ex * ex_sum;
             });
-            t->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+
+            t->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
                 const auto& m = ret->eval();
                 const auto& d = ret->diff(E);
                 const auto colwise_prod_sum = m.cwiseProduct(d).colwise().sum();
@@ -64,7 +65,7 @@ namespace lazy::nn {
                         .col(0).asDiagonal();
                 return ex_sum * ex;
             });
-            t->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+            t->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
                 const auto& m = ret->eval();
                 const auto& d = ret->diff(E);
                 const auto rowwise_prod_sum = m.cwiseProduct(d).rowwise().sum();

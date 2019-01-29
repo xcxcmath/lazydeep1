@@ -14,7 +14,8 @@
 using VariablePtrType = std::shared_ptr<Variable<T>>; \
 using PlaceholderPtrType = std::shared_ptr<Placeholder<T>>; \
 using OperandPtrType = typename Operand<T>::Pointer; \
-using VariableMap = std::map<VariablePtrType, std::optional<T>>; \
+using VariableSet = std::set<VariablePtrType>; \
+using VariableMap = std::map<VariablePtrType, T>; \
 using PlaceholderMap = std::map<PlaceholderPtrType, T>; \
 using OptFunction = std::function<T(PlaceholderMap)>;
 
@@ -30,66 +31,60 @@ namespace lazy::train {
         virtual OptFunction minimize(const OperandPtrType& target){
             return [this, target](PlaceholderMap mp) -> T{
                 PlaceholderMap ph = std::move(mp);
-                VariableMap grad = computeGradients(target, ph);
+                VariableSet var_list = searchVariables(target);
+                VariableMap grad = computeGradients(target, ph, var_list);
                 T ret = target->eval();
 
-                negateGradients(grad);
                 applyGradients(grad);
 
                 return ret;
             };
         };
-        virtual OptFunction maximize(const OperandPtrType& target){
-            return [this, target](PlaceholderMap mp) -> T{
+
+        virtual OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list){
+            return [this, target, var_list](PlaceholderMap mp) -> T{
                 PlaceholderMap ph = std::move(mp);
-                VariableMap grad = computeGradients(target, ph);
+                VariableMap grad = computeGradients(target, ph, var_list);
                 T ret = target->eval();
 
                 applyGradients(grad);
 
                 return ret;
             };
-        };
+        }
 
-        virtual VariableMap computeGradients(const OperandPtrType& target, PlaceholderMap& ph){
+        virtual VariableMap computeGradients(const OperandPtrType& target, PlaceholderMap& ph, const VariableSet& var_list){
             applyPlaceholders(ph);
 
-            VariableMap var = searchVariables(target);
-            for(auto& [ptr, value]: var){
-                value = ptr->diff(target);
+            VariableMap var_map;
+            for(auto& ptr: var_list){
+                var_map[ptr] = ptr->diff(target);
             }
-            return var;
+            return var_map;
         }
         virtual void applyGradients(VariableMap& grad){
             for(auto& [ptr, value]: grad){
-                *(ptr) = (ptr->eval()) + (value.value()) * m_lr;
+                *(ptr) = (ptr->eval()) + (value) * -m_lr;
             }
         }
 
     protected:
         Scalar m_lr;
 
-        void negateGradients(VariableMap& grad){
-            for(auto& [var, value]: grad){
-                value = value.value() * static_cast<Scalar>(-1);
-            }
-        }
         void applyPlaceholders(PlaceholderMap& ph){
             for(auto& [ptr, value]: ph){
                 *ptr = value;
             }
         }
 
-        VariableMap searchVariables(const OperandPtrType& operand){
-            VariableMap ret;
+        VariableSet searchVariables(const OperandPtrType& operand){
+            VariableSet ret;
             for(const auto& pre: operand->getPreOperand()){
                 const auto mp = searchVariables(pre);
                 ret.insert(mp.begin(), mp.end());
             }
             if(operand->isOptimizable()) {
-                ret.emplace(std::make_pair(
-                        std::dynamic_pointer_cast<Variable<T>>(operand),
-                        std::optional<T>(std::nullopt)));
+                ret.insert(std::dynamic_pointer_cast<Variable<T>>(operand));
             }
 
             return ret;

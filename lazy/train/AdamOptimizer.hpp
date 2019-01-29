@@ -26,28 +26,29 @@ namespace lazy::train {
         OptFunction minimize(const OperandPtrType& target) override{
             return [this, target](PlaceholderMap mp) -> T {
                 PlaceholderMap ph = std::move(mp);
-                VariableMap grad = this->computeGradients(target, ph);
+                VariableSet var_list = this->searchVariables(target);
+                VariableMap grad = this->computeGradients(target, ph, var_list);
                 T ret = target->eval();
 
-                this->adjustGradients(grad);
-                this->negateGradients(grad);
+                this->adjustMomentumAndGradients(grad);
                 this->applyGradients(grad);
 
                 return ret;
             };
         };
-        OptFunction maximize(const OperandPtrType& target) override {
-            return [this, target](PlaceholderMap mp) -> T {
+
+        virtual OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list){
+            return [this, target, var_list](PlaceholderMap mp) -> T{
                 PlaceholderMap ph = std::move(mp);
-                VariableMap grad = this->computeGradients(target, ph);
+                VariableMap grad = this->computeGradients(target, ph, var_list);
                 T ret = target->eval();
 
-                this->adjustGradients(grad);
+                this->adjustMomentumAndGradients(grad);
                 this->applyGradients(grad);
 
                 return ret;
             };
-        };
+        }
 
     protected:
         Scalar m_beta1, m_beta2;
@@ -57,23 +58,21 @@ namespace lazy::train {
         VariableMap m_first;
         VariableMap m_second;
 
-        void adjustGradients(VariableMap& grad){
+        void adjustMomentumAndGradients(VariableMap& grad){
             if(m_first.empty() || m_second.empty()){
                 for(auto& [ptr, value]: grad){
-                    const auto here = value->eval();
-                    m_first.emplace(std::make_pair(ptr, T::Zero(here.rows(), here.cols())));
-                    m_second.emplace(std::make_pair(ptr, T::Zero(here.rows(), here.cols())));
+                    m_first.emplace(std::make_pair(ptr, T::Zero(value.rows(), value.cols())));
+                    m_second.emplace(std::make_pair(ptr, T::Zero(value.rows(), value.cols())));
                 }
             }
 
             for(auto& [ptr, value]: grad){
-                const auto here = value->eval();
-                m_first.at(ptr) = m_first.at(ptr).value() * m_beta1 + here * (1-m_beta1);
-                m_second.at(ptr) = m_second.at(ptr).value() * m_beta2
-                        + here.unaryExpr([](Scalar f){return f*f;}) * (1-m_beta2);
+                m_first.at(ptr) = m_first.at(ptr) * m_beta1 + value * (1-m_beta1);
+                m_second.at(ptr) = m_second.at(ptr) * m_beta2
+                        + value.unaryExpr([](Scalar f){return f*f;}) * (1-m_beta2);
 
-                value = (m_first.at(ptr).value() / (1 - m_b1))
-                        .cwiseProduct((m_second.at(ptr).value() / (1 - m_b2))
+                value = (m_first.at(ptr) / (1 - m_b1))
+                        .cwiseProduct((m_second.at(ptr) / (1 - m_b2))
                         .unaryExpr([this](Scalar f){return std::pow(std::sqrt(f) + m_eps, Scalar(-1));}));
             }
 

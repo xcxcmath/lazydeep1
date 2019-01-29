@@ -34,7 +34,7 @@ namespace lazy {
     }
 
     template<typename T>
-    decltype(auto) zero_matrix_variable(Eigen::Index rows, Eigen::Index cols){
+    decltype(auto) zero_matrix_variable(Index rows, Index cols){
         auto ret = make_variable<Matrix<T>>();
         auto m = Matrix<T>::Zero(rows, cols);
 
@@ -43,15 +43,15 @@ namespace lazy {
     }
 
     template<typename T>
-    decltype(auto) random_normal_matrix_variable(Eigen::Index rows, Eigen::Index cols, T mean=0.0, T stddev=1.0) {
+    decltype(auto) random_normal_matrix_variable(Index rows, Index cols, T mean=0.0, T stddev=1.0) {
         auto ret = make_variable<Matrix<T>>();
         std::random_device rd;
         std::mt19937 gen{rd()};
         std::normal_distribution<T> nd(mean, stddev);
 
         Matrix<T> m(rows, cols);
-        for(Eigen::Index i = 0; i < rows; ++i) {
-            for (Eigen::Index j = 0; j < cols; ++j)
+        for(Index i = 0; i < rows; ++i) {
+            for (Index j = 0; j < cols; ++j)
                 m(i, j) = nd(gen);
         }
 

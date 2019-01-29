@@ -13,9 +13,9 @@
 
 using namespace lazy;
 
-constexpr int TOTAL_SZ = 60'000;
-constexpr int TEST_SZ = 10'000;
-constexpr int PIXEL_SZ = 28 * 28;
+constexpr Index TOTAL_SZ = 60'000;
+constexpr Index TEST_SZ = 10'000;
+constexpr Index PIXEL_SZ = 28 * 28;
 
 unsigned char images[TOTAL_SZ][PIXEL_SZ];
 unsigned char labels[TOTAL_SZ];
@@ -31,8 +31,8 @@ bool load_train(){
     for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
     for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
 
-    for(int idx = 0 ; idx < TOTAL_SZ ; ++idx){
-        for(int p = 0 ; p < PIXEL_SZ ; ++p)
+    for(Index idx = 0 ; idx < TOTAL_SZ ; ++idx){
+        for(Index p = 0 ; p < PIXEL_SZ ; ++p)
             images[idx][p] = fgetc(img_in);
         labels[idx] = fgetc(lab_in);
     }
@@ -52,8 +52,8 @@ bool load_test(){
     for(int i = 0 ; i < 16 ; ++i) fgetc(img_in);
     for(int i = 0 ; i < 8 ; ++i) fgetc(lab_in);
 
-    for(int idx = 0 ; idx < TEST_SZ ; ++idx){
-        for(int p = 0 ; p < PIXEL_SZ ; ++p)
+    for(Index idx = 0 ; idx < TEST_SZ ; ++idx){
+        for(Index p = 0 ; p < PIXEL_SZ ; ++p)
             test_img[idx][p] = fgetc(img_in);
         test_lab[idx] = fgetc(lab_in);
     }
@@ -64,20 +64,21 @@ bool load_test(){
     return true;
 }
 
-void build_train_input(Matrix<float>& input, Matrix<float>& sol, unsigned batch, unsigned batch_sz){
-    for(int i = 0; i < batch_sz; ++i){
-        for(int p = 0; p < PIXEL_SZ; ++p){
+void build_train_input(Matrix<float>& input, Matrix<float>& sol, Index batch, Index batch_sz){
+    for(Index i = 0; i < batch_sz; ++i){
+        for(Index p = 0; p < PIXEL_SZ; ++p){
             input(p, i) = (images[batch*batch_sz+i][p]/255.f);
         }
         sol(labels[batch*batch_sz+i], i) = 1.f;
     }
 }
 
-void build_test_input(Matrix<float>& input, unsigned iter, unsigned test_sz){
-    for(int i = 0; i < test_sz; ++i){
-        for(int p = 0; p < PIXEL_SZ; ++p){
-            input(p, i) = (test_img[iter*100+i][p]/255.f);
+void build_test_input(Matrix<float>& input, Matrix<float>& sol, Index iter, Index test_sz){
+    for(Index i = 0; i < test_sz; ++i){
+        for(Index p = 0; p < PIXEL_SZ; ++p){
+            input(p, i) = (test_img[iter*test_sz+i][p]/255.f);
         }
+        sol(test_lab[iter*test_sz+i], i) = 1.f;
     }
 }
 
@@ -100,10 +101,10 @@ int main() {
     std::cout << "Finish\nInitializing network..";
 
     // hyper-parameters
-    constexpr unsigned batch_sz = 100;
-    constexpr unsigned total_batch = TOTAL_SZ / batch_sz;
-    constexpr unsigned total_epoch = 15;
-    constexpr unsigned middle_layer = 256;
+    constexpr Index batch_sz = 100;
+    constexpr Index total_batch = TOTAL_SZ / batch_sz;
+    constexpr Index total_epoch = 15;
+    constexpr Index middle_layer = 256;
 
     /*
      * Construct NN Layers
@@ -130,7 +131,13 @@ int main() {
     // Operands for output layer
     auto wx3 = dot_product(W3, z2);
     auto y = nn::softmax(wx3, nn::input_type::colwise);
-    auto loss = nn::cross_entropy(y, t, nn::input_type::colwise, 1e-8f); // scalar value; smaller is better
+
+    // cost function (or value) - smaller is better
+    auto loss = nn::cross_entropy(y, t, nn::input_type::colwise, 1e-8f);
+
+    // This Operand is used for testing, which counts correct answers
+    auto corr = reduce_sum(equal(reduce_argmax(y, reduce_to::row), reduce_argmax(t, reduce_to::row)));
+
     std::cout << "Finish\n\n";
 
     /*
@@ -148,7 +155,7 @@ int main() {
         std::cout << "Epoch " << std::setw(2) << (epoch+1) << " : ";
         Matrix<float> total_cost = Matrix<float>::Zero(1, 1);
 
-        for(unsigned batch = 0; batch < total_batch ; ++batch){
+        for(Index batch = 0; batch < total_batch ; ++batch){
             Matrix<float> sol = Matrix<float>::Zero(10, batch_sz);
 
             // construct input and sol matrix
@@ -174,24 +181,16 @@ int main() {
     int total_correct = 0;
     input = Matrix<float>::Zero(PIXEL_SZ, 100);
 
-    for(unsigned iter = 0; iter < 100; ++iter){
-
-        // construct input matrix
-        build_test_input(input, iter, 100);
+    for(Index iter = 0; iter < 100; ++iter){
+        // construct input
+        Matrix<float> sol = Matrix<float>::Zero(10, 100);
+        build_test_input(input, sol, iter, 100);
         *x = input;
+        *t = sol;
 
         // evaluate
-        const auto& ans = y->eval();
-
-        // check
-        for(int i = 0; i < 100; ++i){
-            Eigen::Index res, temp;
-            ans.col(i).maxCoeff(&res, &temp);
-
-            if((char)res == test_lab[iter*100+i]){
-                ++total_correct;
-            }
-        }
+        const auto& res = corr->eval();
+        total_correct += (int)res(0, 0);
     }
 
     std::cout << "Finish (" << total_correct << "/" << TEST_SZ << ")\n";

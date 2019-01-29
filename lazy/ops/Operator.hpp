@@ -9,12 +9,12 @@
 
 #define LAZY_ASSERT_TYPE_SAME(T1, T2) static_assert(std::is_same<T1, T2>::value, "lazy: Types are inconsistent")
 #define LAZY_TYPEDEF_OPERATOR(T) \
-    using _Operand = typename T::element_type; \
-    using PtrType = typename _Operand::Pointer; \
-    using SetType = typename _Operand::PointerSet; \
-    using MapType = typename _Operand::PointerMap; \
-    using ValueType = typename _Operand::ValueType; \
-    using ScalarType = typename ValueType::Scalar;
+    using _Operand [[maybe_unused]] = typename T::element_type; \
+    using PtrType [[maybe_unused]] = typename _Operand::Pointer; \
+    using SetType [[maybe_unused]] = typename _Operand::PointerSet; \
+    using MapType [[maybe_unused]] = typename _Operand::PointerMap; \
+    using ValueType [[maybe_unused]] = typename _Operand::ValueType; \
+    using ScalarType [[maybe_unused]] = typename ValueType::Scalar;
 
 namespace lazy {
 
@@ -33,7 +33,8 @@ namespace lazy {
             return t->eval().unaryExpr(func);
         });
 
-        t->getPostOperand()[ret] = [t, ret, df](const PtrType& E) -> ValueType{
+        t->getPostOperand().insert({ret});
+        t->getDF()[ret] = [t, ret, df](const PtrType& E) -> ValueType{
             return ret->diff(E).cwiseProduct(t->eval().unaryExpr(df));
         };
 
@@ -55,10 +56,13 @@ namespace lazy {
             return t1->eval().colwise() + vec->eval().col(0);
         });
 
-        t1->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+        t1->getPostOperand().insert({ret});
+        t1->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
             return ret->diff(E);
         };
-        vec->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+
+        vec->getPostOperand().insert({ret});
+        vec->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
             return ret->diff(E).rowwise().sum();
         };
 
@@ -76,10 +80,13 @@ namespace lazy {
             return t1->eval().rowwise() + vec->eval().row(0);
         });
 
-        t1->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+        t1->getPostOperand().insert({ret});
+        t1->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
             return ret->diff(E);
         };
-        vec->getPostOperand()[ret] = [ret](const PtrType& E) -> ValueType {
+
+        vec->getPostOperand().insert({ret});
+        vec->getDF()[ret] = [ret](const PtrType& E) -> ValueType {
             return ret->diff(E).colwise().sum();
         };
 
@@ -94,7 +101,7 @@ namespace lazy {
         LAZY_ASSERT_TYPE_SAME(ScalarType, T2);
 
         return unaryExpr(t1, [constant](ScalarType f)->ScalarType{return f + constant;},
-                [constant](ScalarType f)->ScalarType{return 1;});
+                [constant](ScalarType)->ScalarType{return 1;});
     }
 
     /*
@@ -109,7 +116,7 @@ namespace lazy {
         LAZY_ASSERT_TYPE_SAME(ScalarType, T2);
 
         return unaryExpr(t1, [constant](ScalarType f)->ScalarType{return f*constant;},
-                         [constant](ScalarType f)->ScalarType{return constant;});
+                         [constant](ScalarType)->ScalarType{return constant;});
     }
 
     template<typename T1, typename T2>
@@ -123,10 +130,13 @@ namespace lazy {
             return t1->eval() * t2->eval();
         });
 
-        t1->getPostOperand()[ret] = [t2, ret](const PtrType& E) -> ValueType {
+        t1->getPostOperand().insert({ret});
+        t1->getDF()[ret] = [t2, ret](const PtrType& E) -> ValueType {
             return ret->diff(E) * t2->eval().transpose();
         };
-        t2->getPostOperand()[ret] = [t1, ret](const PtrType& E) -> ValueType {
+
+        t2->getPostOperand().insert({ret});
+        t2->getDF()[ret] = [t1, ret](const PtrType& E) -> ValueType {
             return t1->eval().transpose() * ret->diff(E);
         };
 
@@ -144,10 +154,13 @@ namespace lazy {
             return t1->eval().cwiseProduct(t2->eval());
         });
 
-        t1->getPostOperand()[ret] = [t2, ret](const PtrType& E) -> ValueType {
+        t1->getPostOperand().insert({ret});
+        t1->getDF()[ret] = [t2, ret](const PtrType& E) -> ValueType {
             return ret->diff(E).cwiseProduct(t2->eval());
         };
-        t2->getPostOperand()[ret] = [t1, ret](const PtrType& E) -> ValueType {
+
+        t2->getPostOperand().insert({ret});
+        t2->getDF()[ret] = [t1, ret](const PtrType& E) -> ValueType {
             return ret->diff(E).cwiseProduct(t1->eval());
         };
 
@@ -166,7 +179,7 @@ namespace lazy {
 
     template<typename T>
     [[nodiscard]] decltype(auto) reduce_sum
-            (const T& t, reduce_to axis){
+            (const T& t, reduce_to axis = reduce_to::scalar){
         LAZY_TYPEDEF_OPERATOR(T);
 
         auto ret = make_operand<ValueType>();
@@ -182,7 +195,8 @@ namespace lazy {
             return m;
         });
 
-        t->getPostOperand()[ret] = [t, ret, axis](const PtrType& E) -> ValueType {
+        t->getPostOperand().insert({ret});
+        t->getDF()[ret] = [t, ret, axis](const PtrType& E) -> ValueType {
             const auto rows = t->eval().rows();
             const auto cols = t->eval().cols();
             if(axis == reduce_to::column)
@@ -198,7 +212,7 @@ namespace lazy {
 
     template<typename T>
     [[nodiscard]] decltype(auto) reduce_mean
-            (const T& t, reduce_to axis){
+            (const T& t, reduce_to axis = reduce_to::scalar){
         LAZY_TYPEDEF_OPERATOR(T);
         auto ret = make_operand<ValueType>();
         ret->getPreOperand().insert({t});
@@ -213,7 +227,8 @@ namespace lazy {
             return m;
         });
 
-        t->getPostOperand()[ret] = [t, ret, axis](const PtrType& E) -> ValueType {
+        t->getPostOperand().insert({ret});
+        t->getDF()[ret] = [t, ret, axis](const PtrType& E) -> ValueType {
             const auto rows = t->eval().rows();
             const auto cols = t->eval().cols();
             if(axis == reduce_to::column)
@@ -223,6 +238,80 @@ namespace lazy {
 
             return ValueType::Constant(rows, cols, ret->diff(E)(0,0) / ScalarType(rows*cols));
         };
+
+        return ret;
+    }
+
+    template<typename T>
+    [[nodiscard]] decltype(auto) reduce_argmax
+            (const T& t, reduce_to axis = reduce_to::scalar){
+        LAZY_TYPEDEF_OPERATOR(T);
+        auto ret = make_operand<ValueType>();
+        ret->getPreOperand().insert({t});
+        ret->setFunction([t, axis]() -> ValueType {
+            const auto& val = t->eval();
+            const auto rows = val.rows();
+            const auto cols = val.cols();
+
+            ValueType m; Index r, c;
+
+            if(axis == reduce_to::column){
+                m = ValueType(rows, 1);
+                for(Index i = 0; i < rows; ++i){
+                    val.row(i).maxCoeff(&r, &c);
+                    m(i) = c;
+                }
+            }
+            else if(axis == reduce_to::row){
+                m = ValueType(1, cols);
+                for(Index i = 0; i < cols; ++i){
+                    val.col(i).maxCoeff(&r, &c);
+                    m(i) = r;
+                }
+            }
+            else {
+                m = ValueType(1, 2);
+                val.maxCoeff(&r, &c);
+                m << r, c;
+            }
+
+            return m;
+        });
+
+        t->getPostOperand().insert({ret});
+        // delta is undefined
+
+        return ret;
+    }
+
+    /*
+     * checker
+     */
+    template<typename T1, typename T2>
+    [[nodiscard]] decltype(auto) equal
+            (const T1& t1, const T2& t2){
+        LAZY_TYPEDEF_OPERATOR(T1);
+        auto ret = make_operand<ValueType>();
+        ret->getPreOperand().insert({t1, t2});
+        ret->setFunction([t1, t2]() -> ValueType {
+            const auto& val1 = t1->eval();
+            const auto& val2 = t2->eval();
+            const auto rows = val1.rows();
+            const auto cols = val1.cols();
+
+            ValueType m(rows, cols);
+            for(Index i = 0; i < rows; ++i){
+                for(Index j = 0; j < cols; ++j){
+                    m(i, j) = ScalarType(val1(i, j) == val2(i, j));
+                }
+            }
+
+            return m;
+        });
+
+        t1->getPostOperand().insert({ret});
+        t2->getPostOperand().insert({ret});
+        // delta is undefined
 
         return ret;
     }

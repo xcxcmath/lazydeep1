@@ -17,6 +17,8 @@ namespace lazy {
     template<typename T>
     using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
 
+    using Index = Eigen::Index;
+
     template<typename T>
     class Operand {
     public:
@@ -28,7 +30,7 @@ namespace lazy {
         using PointerSet = std::set<Pointer>;
 
         explicit Operand()
-        : m_f([](){return T();}),
+        : m_f([](){return T();}), m_df(),
         m_pre(), m_post(),
         m_value(std::nullopt), m_delta(),
         m_optimizable(false) {
@@ -56,7 +58,7 @@ namespace lazy {
                 return cache;
             }
 
-            for(const auto& [ptr, df]: m_post){
+            for(const auto& [ptr, df]: m_df){
                 cache = cache + df(E);
             }
 
@@ -69,11 +71,17 @@ namespace lazy {
         const PointerSet& getPreOperand() const {
             return m_pre;
         }
-        PointerMap& getPostOperand() {
+        PointerSet& getPostOperand() {
             return m_post;
         }
-        const PointerMap& getPostOperand() const {
+        const PointerSet& getPostOperand() const {
             return m_post;
+        }
+        PointerMap& getDF() {
+            return m_df;
+        }
+        const PointerMap& getDF() const {
+            return m_df;
         }
 
         virtual void setFunction(Function f){
@@ -86,7 +94,7 @@ namespace lazy {
                 if(m_post.empty()){
                     reset_delta();
                 } else {
-                    for (auto &[ptr, _]: m_post) ptr->reset_value();
+                    for (auto &ptr: m_post) ptr->reset_value();
                 }
             }
         }
@@ -104,8 +112,9 @@ namespace lazy {
 
     protected:
         Function m_f;
+        PointerMap m_df;
         PointerSet m_pre;
-        PointerMap m_post;
+        PointerSet m_post;
 
         std::optional<T> m_value;
         std::map<Pointer, T> m_delta;
@@ -113,9 +122,10 @@ namespace lazy {
         const bool m_optimizable;
 
         explicit Operand(bool optimizable)
-                : m_post(),
-                  m_value(std::nullopt), m_delta(),
-                  m_optimizable(optimizable){
+                : m_f([](){return T();}), m_df(),
+                m_pre(), m_post(),
+                m_value(std::nullopt), m_delta(),
+                m_optimizable(optimizable){
 
         }
     };
