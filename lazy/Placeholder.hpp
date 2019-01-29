@@ -15,6 +15,9 @@ namespace lazy {
 
         }
 
+        // Anything about Copy/Move is inhibited
+        LAZY_DELETED_FUNCTIONS(Placeholder, T);
+
         static void applyPlaceholders(const std::map<std::shared_ptr<Placeholder<T>>, T>& mp){
             for(const auto& [ptr, value] : mp){
                 ptr->reset_value();

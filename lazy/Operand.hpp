@@ -13,6 +13,12 @@
 #include <set>
 #include <map>
 
+#define LAZY_DELETED_FUNCTIONS(Base, T) \
+    Base(const Base<T>&) = delete; \
+    Base<T>& operator=(const Base<T>&) = delete; \
+    Base(Base<T>&& rhs) = delete; \
+    Base<T>& operator=(Base<T>&&) = delete;
+
 namespace lazy {
     template<typename T>
     using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
@@ -29,6 +35,10 @@ namespace lazy {
         using PointerMap = std::map<Pointer, DFunction>;
         using PointerSet = std::set<Pointer>;
 
+        /*
+         * Constructors / Destructors / Assignment operators
+         */
+
         explicit Operand()
         : m_f([](){return T();}), m_df(),
         m_pre(), m_post(),
@@ -36,6 +46,15 @@ namespace lazy {
         m_optimizable(false) {
 
         }
+
+        virtual ~Operand() = default;
+
+        // Anything about Copy/Move is inhibited
+        LAZY_DELETED_FUNCTIONS(Operand, T);
+
+        /*
+         * Evaluating methods
+         */
 
         virtual const T& eval(){
             return m_value.has_value() ? m_value.value() : m_value.emplace(m_f());
@@ -65,28 +84,40 @@ namespace lazy {
             return cache;
         }
 
-        PointerSet& getPreOperand() {
+        /*
+         * Getter/Setter
+         */
+
+        PointerSet& getPreOperand() noexcept {
             return m_pre;
         }
-        const PointerSet& getPreOperand() const {
+        const PointerSet& getPreOperand() const noexcept {
             return m_pre;
         }
-        PointerSet& getPostOperand() {
+        PointerSet& getPostOperand() noexcept {
             return m_post;
         }
-        const PointerSet& getPostOperand() const {
+        const PointerSet& getPostOperand() const noexcept {
             return m_post;
         }
-        PointerMap& getDF() {
+        PointerMap& getDF() noexcept {
             return m_df;
         }
-        const PointerMap& getDF() const {
+        const PointerMap& getDF() const noexcept {
             return m_df;
         }
 
         virtual void setFunction(Function f){
             m_f = std::move(f);
         }
+
+        bool isOptimizable() const noexcept {
+            return m_optimizable;
+        }
+
+        /*
+         * Re-setter
+         */
 
         virtual void reset_value(){
             if(m_value.has_value()){
@@ -104,10 +135,6 @@ namespace lazy {
                 m_delta.clear();
                 for(auto& p: m_pre) p->reset_delta();
             }
-        }
-
-        bool isOptimizable() const {
-            return m_optimizable;
         }
 
     protected:

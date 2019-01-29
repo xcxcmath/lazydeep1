@@ -16,6 +16,9 @@ namespace lazy {
             this->m_value.emplace(args...);
         }
 
+        // Anything about Copy/Move is inhibited
+        LAZY_DELETED_FUNCTIONS(Constant, T);
+
         const T& eval() override {
             return this->m_value.value();
         }

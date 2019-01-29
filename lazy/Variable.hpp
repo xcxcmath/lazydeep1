@@ -17,6 +17,9 @@ namespace lazy {
             this->m_value = T(args...);
         }
 
+        // Anything about Copy/Move is inhibited
+        LAZY_DELETED_FUNCTIONS(Variable, T);
+
         Variable& operator=(const T& val){
             this->reset_value();
             this->m_value.emplace(val);

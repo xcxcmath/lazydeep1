@@ -34,8 +34,6 @@ int main() {
      * 3-layer NN example (MNIST)
      */
 
-    std::ios::sync_with_stdio(false);
-
     // Multi-threading
     // PLEASE CHANGE IT PROPERLY
     Eigen::setNbThreads(4);
@@ -47,7 +45,7 @@ int main() {
         return 0;
     }
 
-    std::cout << "Finish\nInitializing network..";
+    std::cout << "Finish\nInitializing model..";
 
     // hyper-parameters
     constexpr Index batch_sz = 100;
