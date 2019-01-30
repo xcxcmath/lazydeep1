@@ -2,8 +2,8 @@
 // Created by bjk on 19. 1. 27.
 //
 
-#ifndef LAZYDEEP1_ADAMOPTIMIZER_H
-#define LAZYDEEP1_ADAMOPTIMIZER_H
+#ifndef LAZYDEEP1_ADAMOPTIMIZER_HPP
+#define LAZYDEEP1_ADAMOPTIMIZER_HPP
 
 #include "Optimizer.hpp"
 
@@ -24,20 +24,11 @@ namespace lazy::train {
         }
 
         OptFunction minimize(const OperandPtrType& target) override{
-            return [this, target](PlaceholderMap mp) -> T {
-                PlaceholderMap ph = std::move(mp);
-                VariableSet var_list = this->searchVariables(target);
-                VariableMap grad = this->computeGradients(target, ph, var_list);
-                T ret = target->eval();
-
-                this->adjustMomentumAndGradients(grad);
-                this->applyGradients(grad);
-
-                return ret;
-            };
+            VariableSet var_list = this->searchVariables(target);
+            return minimize(target, var_list);
         };
 
-        virtual OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list){
+        OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list) override{
             return [this, target, var_list](PlaceholderMap mp) -> T{
                 PlaceholderMap ph = std::move(mp);
                 VariableMap grad = this->computeGradients(target, ph, var_list);
@@ -82,4 +73,4 @@ namespace lazy::train {
     };
 }
 
-#endif //LAZYDEEP1_ADAMOPTIMIZER_H
+#endif //LAZYDEEP1_ADAMOPTIMIZER_HPP

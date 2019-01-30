@@ -29,16 +29,8 @@ namespace lazy::train {
         explicit Optimizer(Scalar learning_rate): m_lr(learning_rate){}
 
         virtual OptFunction minimize(const OperandPtrType& target){
-            return [this, target](PlaceholderMap mp) -> T{
-                PlaceholderMap ph = std::move(mp);
-                VariableSet var_list = searchVariables(target);
-                VariableMap grad = computeGradients(target, ph, var_list);
-                T ret = target->eval();
-
-                applyGradients(grad);
-
-                return ret;
-            };
+            VariableSet var_list = this->searchVariables(target);
+            return minimize(target, var_list);
         };
 
         virtual OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list){

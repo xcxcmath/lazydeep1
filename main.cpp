@@ -10,6 +10,7 @@
 #include "lazy/Placeholder.hpp"
 
 #include "lazy/train/AdamOptimizer.hpp"
+#include "lazy/train/MomentumOptimizer.hpp"
 
 using namespace lazy;
 using Mat = Matrix<float>;
@@ -55,7 +56,7 @@ int main() {
     // hyper-parameters
     constexpr Index batch_sz = 100;
     constexpr Index total_batch = TOTAL_SZ / batch_sz;
-    constexpr Index total_epoch = 20;
+    constexpr Index total_epoch = 15;
     constexpr Index middle_layer = 256;
 
     /*

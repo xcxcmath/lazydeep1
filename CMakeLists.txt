@@ -16,6 +16,6 @@ set(lz
         lazy/ops/Math.hpp
         lazy/ops/NN.hpp
         lazy/train/Optimizer.hpp
-        lazy/train/AdamOptimizer.hpp)
+        lazy/train/AdamOptimizer.hpp lazy/train/MomentumOptimizer.hpp)
 
 add_executable(lazydeep1 main.cpp ${lz})

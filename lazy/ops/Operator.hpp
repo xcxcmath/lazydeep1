@@ -49,20 +49,8 @@ namespace lazy {
         const ScalarType h = 1e-4;
         auto df = [func, h](ScalarType f)->ScalarType{return (func(f+h) - func(f-h)) / (2*h);};
 
-        auto ret = make_operand<ValueType>();
-        ret->getPreOperand().insert({t});
-        ret->setFunction([t, func]() -> ValueType{
-            return t->eval().unaryExpr(func);
-        });
-
-        t->getPostOperand().insert({ret});
-        t->getDF()[ret] = [t, ret, df](const PtrType& E) -> ValueType{
-            return ret->diff(E).cwiseProduct(t->eval().unaryExpr(df));
-        };
-
-        return ret;
+        return unaryExpr(t, func, df);
     }
-
 
 
     /*
@@ -318,19 +306,7 @@ namespace lazy {
         auto ret = make_operand<ValueType>();
         ret->getPreOperand().insert({t1, t2});
         ret->setFunction([t1, t2]() -> ValueType {
-            const auto& val1 = t1->eval();
-            const auto& val2 = t2->eval();
-            const auto rows = val1.rows();
-            const auto cols = val1.cols();
-
-            ValueType m(rows, cols);
-            for(Index i = 0; i < rows; ++i){
-                for(Index j = 0; j < cols; ++j){
-                    m(i, j) = ScalarType(val1(i, j) == val2(i, j));
-                }
-            }
-
-            return m;
+            return t1->eval().cwiseEqual(t2->eval()).template cast<ScalarType>();
         });
 
         t1->getPostOperand().insert({ret});
