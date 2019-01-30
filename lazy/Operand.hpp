@@ -8,6 +8,7 @@
 #include <Eigen>
 #include <memory>
 #include <algorithm>
+#include <random>
 #include <functional>
 #include <optional>
 #include <set>

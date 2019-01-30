@@ -28,6 +28,16 @@ namespace lazy::nn {
     }
 
     template<typename T>
+    [[nodiscard]] decltype(auto) softsign
+            (const T &t){
+        LAZY_TYPEDEF_OPERATOR(T);
+
+        return unaryExpr(t,
+                         [](ScalarType f)->ScalarType{return f / (std::abs(f) + 1);},
+                         [](ScalarType f)->ScalarType{return std::pow(std::abs(f) + 1, ScalarType(-2));});
+    }
+
+    template<typename T>
     [[nodiscard]] decltype(auto) softmax
             (const T &t, input_type axis){
         LAZY_TYPEDEF_OPERATOR(T);
@@ -90,6 +100,52 @@ namespace lazy::nn {
 
         return reduce_mean(reduce_sum(scalar_product(hadamard_product(sol, math::log(scalar_plus(t, eps))), -1.f), reduce_to::column), reduce_to::row);
     }
+
+    /*
+     * Drop-out
+     * t, attr -> mask (delta undefined)
+     * t, mask -> ret (delta defined)
+     */
+    template<typename T> T dropout_attr_matrix
+            (typename T::Scalar ratio, bool train){
+        T ret(2, 1);
+        ret << ratio, static_cast<typename T::Scalar>(train);
+        return ret;
+    }
+
+    template<typename T1, typename T2>
+    [[nodiscard]] decltype(auto) dropout
+            (const T1 &t, const T2 &attr){
+        LAZY_TYPEDEF_OPERATOR(T1);
+
+        auto mask = make_operand<ValueType>();
+        mask->getPreOperand().insert({t, attr});
+        mask->setFunction([t, attr]() -> ValueType {
+            const auto& ratio = attr->eval()(0);
+            const auto& train = attr->eval()(1);
+            if(train){
+                std::random_device rd;
+                std::mt19937 gen{rd()};
+                std::bernoulli_distribution dist(ratio);
+                return t->eval().unaryExpr([&dist, &gen](ScalarType)->ScalarType{
+                    return dist(gen);
+                });
+            } else {
+                return t->eval().unaryExpr([ratio](ScalarType)->ScalarType{
+                    return ratio;
+                });
+            }
+        });
+
+        t->getPostOperand().insert({mask});
+        // d(mask) / dt is undefined
+
+        attr->getPostOperand().insert({mask});
+        // d(mask) / d(attr) is undefined
+
+        return hadamard_product(t, mask);
+    }
+
 
 }
 

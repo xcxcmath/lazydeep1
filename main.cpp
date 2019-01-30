@@ -18,6 +18,11 @@ constexpr Index TOTAL_SZ = 60'000;
 constexpr Index TEST_SZ = 10'000;
 constexpr Index PIXEL_SZ = 28 * 28;
 
+const char TRAIN_IMG[] = "../examples/MNIST/train-images.idx3-ubyte";
+const char TRAIN_LAB[] = "../examples/MNIST/train-labels.idx1-ubyte";
+const char TEST_IMG[] = "../examples/MNIST/t10k-images.idx3-ubyte";
+const char TEST_LAB[] = "../examples/MNIST/t10k-labels.idx1-ubyte";
+
 unsigned char images[TOTAL_SZ][PIXEL_SZ];
 unsigned char labels[TOTAL_SZ];
 unsigned char test_img[TEST_SZ][PIXEL_SZ];
@@ -50,7 +55,7 @@ int main() {
     // hyper-parameters
     constexpr Index batch_sz = 100;
     constexpr Index total_batch = TOTAL_SZ / batch_sz;
-    constexpr Index total_epoch = 15;
+    constexpr Index total_epoch = 20;
     constexpr Index middle_layer = 256;
 
     /*
@@ -61,6 +66,7 @@ int main() {
     // Placeholder : to insert labels
     auto x = make_placeholder<Mat>(); // input
     auto t = make_placeholder<Mat>(); // solution label
+    auto dropout_attr = make_placeholder<Mat>(); // for dropout
 
     // Variables : to optimize (i.e. Weights in this example)
     auto W1 = random_normal_matrix_variable<float>(middle_layer, PIXEL_SZ, 0.f, 0.01f);
@@ -71,12 +77,14 @@ int main() {
     // ReLU Activation Function is used
     auto wx1 = dot_product(W1, x);
     auto z1 = nn::relu(wx1);
+    auto dz1 = nn::dropout(z1, dropout_attr);
 
-    auto wx2 = dot_product(W2, z1);
+    auto wx2 = dot_product(W2, dz1);
     auto z2 = nn::relu(wx2);
+    auto dz2 = nn::dropout(z2, dropout_attr);
 
     // Operands for output layer
-    auto wx3 = dot_product(W3, z2);
+    auto wx3 = dot_product(W3, dz2);
     auto y = nn::softmax(wx3, nn::input_type::colwise);
 
     // cost function (or value) - smaller is better
@@ -97,6 +105,7 @@ int main() {
     Mat input(PIXEL_SZ, batch_sz);
 
     std::cout << "Training Start\n";
+    Placeholder<Mat>::applyPlaceholders({{dropout_attr, nn::dropout_attr_matrix<Mat>(0.5f, true)}});
 
     for(unsigned epoch = 0; epoch < total_epoch ; ++epoch){
         std::cout << "Epoch " << std::setw(2) << (epoch+1) << " : ";
@@ -109,7 +118,8 @@ int main() {
             build_train_input(input, sol, batch, batch_sz);
 
             // training
-            auto cost = training({{x, input}, {t, sol}});
+            auto cost = training({{x, input},
+                                  {t, sol}});
             total_cost = total_cost + cost;
         }
 
@@ -124,6 +134,7 @@ int main() {
      * Test NN
      */
     std::cout << "Test Start..\n";
+    Placeholder<Mat>::applyPlaceholders({{dropout_attr, nn::dropout_attr_matrix<Mat>(0.5f, false)}});
 
     int total_correct = 0;
     input = Mat::Zero(PIXEL_SZ, 100);
@@ -132,7 +143,8 @@ int main() {
         // construct input
         Mat sol = Mat::Zero(10, 100);
         build_test_input(input, sol, iter, 100);
-        Placeholder<Mat>::applyPlaceholders({{x, input}, {t, sol}});
+        Placeholder<Mat>::applyPlaceholders({{x, input},
+                                             {t, sol}});
 
         // evaluate
         const auto& res = corr->eval();
@@ -149,8 +161,8 @@ int main() {
  */
 
 bool load_train(){
-    std::ifstream img_in("../examples/MNIST/train-images.idx3-ubyte", std::ios::binary);
-    std::ifstream lab_in("../examples/MNIST/train-labels.idx1-ubyte", std::ios::binary);
+    std::ifstream img_in(TRAIN_IMG, std::ios::binary);
+    std::ifstream lab_in(TRAIN_LAB, std::ios::binary);
 
     if(!img_in.is_open() || !lab_in.is_open()) return false;
 
@@ -180,8 +192,8 @@ bool load_train(){
 }
 
 bool load_test(){
-    std::ifstream img_in("../examples/MNIST/t10k-images.idx3-ubyte", std::ios::binary);
-    std::ifstream lab_in("../examples/MNIST/t10k-labels.idx1-ubyte", std::ios::binary);
+    std::ifstream img_in(TEST_IMG, std::ios::binary);
+    std::ifstream lab_in(TEST_LAB, std::ios::binary);
 
     if(!img_in.is_open() || !lab_in.is_open()) return false;
 

@@ -27,6 +27,26 @@ namespace lazy::math {
                          [](ScalarType f)->ScalarType{return std::log(f);},
                          [](ScalarType f)->ScalarType{return 1 / f;});
     }
+
+    template<typename T>
+    [[nodiscard]] decltype(auto) tanh
+            (const T &t){
+        LAZY_TYPEDEF_OPERATOR(T);
+
+        return unaryExpr(t,
+                         [](ScalarType f)->ScalarType{return std::tanh(f);},
+                         [](ScalarType f)->ScalarType{return std::pow(std::cosh(f), ScalarType(-2));});
+    }
+
+    template<typename T>
+    [[nodiscard]] decltype(auto) sigmoid
+            (const T &t){
+        LAZY_TYPEDEF_OPERATOR(T);
+
+        return unaryExpr(t,
+                         [](ScalarType f)->ScalarType{return 1 / (1 + std::exp(-f));},
+                         [](ScalarType f)->ScalarType{return std::exp(-f) / std::pow(1 + std::exp(-f), ScalarType(2));});
+    }
 }
 
 #endif //LAZYDEEP1_MATH_HPP

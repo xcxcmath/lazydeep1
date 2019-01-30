@@ -41,6 +41,30 @@ namespace lazy {
         return ret;
     }
 
+    template<typename T, typename F1>
+    [[nodiscard]] decltype(auto) unaryExpr
+            (const T &t, const F1 &func){
+        LAZY_TYPEDEF_OPERATOR(T);
+
+        const ScalarType h = 1e-4;
+        auto df = [func, h](ScalarType f)->ScalarType{return (func(f+h) - func(f-h)) / (2*h);};
+
+        auto ret = make_operand<ValueType>();
+        ret->getPreOperand().insert({t});
+        ret->setFunction([t, func]() -> ValueType{
+            return t->eval().unaryExpr(func);
+        });
+
+        t->getPostOperand().insert({ret});
+        t->getDF()[ret] = [t, ret, df](const PtrType& E) -> ValueType{
+            return ret->diff(E).cwiseProduct(t->eval().unaryExpr(df));
+        };
+
+        return ret;
+    }
+
+
+
     /*
      * Plus
      */

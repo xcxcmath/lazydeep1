@@ -5,7 +5,6 @@
 #ifndef LAZYDEEP1_VARIABLE_HPP
 #define LAZYDEEP1_VARIABLE_HPP
 
-#include <random>
 #include "Operand.hpp"
 
 namespace lazy {
