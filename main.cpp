@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <chrono>
 
 #include "lazy/ops/NN.hpp"
 
@@ -86,13 +87,13 @@ int main() {
 
     // Operands for output layer
     auto wx3 = dot_product(W3, dz2);
-    auto y = nn::softmax(wx3, nn::input_type::colwise);
+    auto model = nn::softmax(wx3, nn::input_type::colwise);
 
     // cost function (or value) - smaller is better
-    auto loss = nn::cross_entropy(y, t, nn::input_type::colwise, 1e-8f);
+    auto loss = nn::cross_entropy(model, t, nn::input_type::colwise, 1e-8f);
 
     // This Operand is used for testing, which counts correct answers
-    auto corr = reduce_sum(equal(reduce_argmax(y, reduce_to::row), reduce_argmax(t, reduce_to::row)));
+    auto corr = reduce_sum(equal(reduce_argmax(model, reduce_to::row),reduce_argmax(t, reduce_to::row)));
 
     std::cout << "Finish\n\n";
 
@@ -106,6 +107,8 @@ int main() {
     Mat input(PIXEL_SZ, batch_sz);
 
     std::cout << "Training Start\n";
+    auto train_start = std::chrono::system_clock::now();
+
     Placeholder<Mat>::applyPlaceholders({{dropout_attr, nn::dropout_attr_matrix<Mat>(0.5f, true)}});
 
     for(unsigned epoch = 0; epoch < total_epoch ; ++epoch){
@@ -125,11 +128,13 @@ int main() {
         }
 
         // Average cost during one epoch
-        total_cost /= total_batch;
-        std::cout << total_cost << '\n';
+        auto avg_cost = total_cost(0) / total_batch;
+
+        std::cout << std::setw(8) << avg_cost << '\n';
     }
 
-    std::cout << "\nTraining Finish\n\n";
+    std::chrono::duration<double> train_elapsed = std::chrono::system_clock::now() - train_start;
+    std::cout << "\nTraining Finish (Elapsed time : " << train_elapsed.count() << " sec)\n\n";
 
     /*
      * Test NN
