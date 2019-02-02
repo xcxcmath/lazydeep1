@@ -30,7 +30,7 @@ namespace lazy::train {
 
         virtual OptFunction minimize(const OperandPtrType& target){
             VariableSet var_list = this->searchVariables(target);
-            return minimize(target, var_list);
+            return this->minimize(target, var_list);
         };
 
         virtual OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list){

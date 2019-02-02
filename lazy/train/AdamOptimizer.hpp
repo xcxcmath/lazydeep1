@@ -23,10 +23,7 @@ namespace lazy::train {
             m_b2 = beta2;
         }
 
-        OptFunction minimize(const OperandPtrType& target) override{
-            VariableSet var_list = this->searchVariables(target);
-            return minimize(target, var_list);
-        };
+        using Optimizer<T, Scalar>::minimize;
 
         OptFunction minimize(const OperandPtrType& target, const VariableSet& var_list) override{
             return [this, target, var_list](PlaceholderMap mp) -> T{

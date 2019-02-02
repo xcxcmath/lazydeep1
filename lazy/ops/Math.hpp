@@ -28,6 +28,19 @@ namespace lazy::math {
                          [](ScalarType f)->ScalarType{return 1 / f;});
     }
 
+    template<typename T, typename S>
+    [[nodiscard]] decltype(auto) pow
+            (const T &t, S ex){
+        LAZY_TYPEDEF_OPERATOR(T);
+
+        return unaryExpr(t,
+                         [ex](ScalarType f)->ScalarType{return std::pow(f, ex);},
+                         [ex](ScalarType f)->ScalarType{
+            if(ex == 0)
+                return 0;
+            return ex * std::pow(f, ex-1);});
+    }
+
     template<typename T>
     [[nodiscard]] decltype(auto) tanh
             (const T &t){
