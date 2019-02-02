@@ -25,7 +25,7 @@ namespace lazy {
 
         static void applyPlaceholders(const std::map<std::shared_ptr<Placeholder<T>>, T>& mp){
             for(const auto& [ptr, value] : mp){
-                ptr->reset_value();
+                ptr->resetValue();
                 ptr->m_value.emplace(value);
             }
         }

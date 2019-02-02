@@ -12,15 +12,16 @@ namespace lazy {
     class Variable : public Operand<T> {
     public:
         template<typename ...Types>
-        explicit Variable(Types ...args): Operand<T>(true){
-            this->m_value = T(args...);
+        explicit Variable(Types&& ...args): Operand<T>(){
+            this->m_value = T(std::forward<Types>(args)...);
+            this->m_optimizable = true;
         }
 
         // Anything about Copy/Move is inhibited
         LAZY_DELETED_FUNCTIONS(Variable, T);
 
         Variable& operator=(const T& val){
-            this->reset_value();
+            this->resetValue();
             this->m_value.emplace(val);
             return *this;
         }
@@ -31,8 +32,8 @@ namespace lazy {
     };
 
     template<typename T, typename ...Types>
-    decltype(auto) make_variable(Types ...args){
-        return std::make_shared<Variable<T>>(args...);
+    decltype(auto) make_variable(Types&& ...args){
+        return std::make_shared<Variable<T>>(std::forward<Types>(args)...);
     }
 
     template<typename T>

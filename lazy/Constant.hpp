@@ -12,8 +12,8 @@ namespace lazy {
     class Constant : public Operand<T> {
     public:
         template<typename ...Types>
-        explicit Constant(Types ...args): Operand<T>(){
-            this->m_value.emplace(args...);
+        explicit Constant(Types&& ...args): Operand<T>(T(args...)){
+            this->m_value = T(std::forward<Types>(args)...);
         }
 
         // Anything about Copy/Move is inhibited
@@ -23,16 +23,12 @@ namespace lazy {
             return this->m_value.value();
         }
 
-        void setFunction(typename Operand<T>::Function f) override{
-
+        void setFunction(typename Operand<T>::Function) override {
+            // do nothing
         }
 
-        void reset_value() override{
-
-        }
-
-        void reset_delta() override{
-
+        void reset_value() override {
+            for (const auto &ptr: this->m_post) ptr->resetValue();
         }
     };
 }

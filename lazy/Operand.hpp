@@ -120,21 +120,21 @@ namespace lazy {
          * Re-setter
          */
 
-        virtual void reset_value(){
+        virtual void resetValue(){
             if(m_value.has_value()){
                 m_value.reset();
                 if(m_post.empty()){
-                    reset_delta();
+                    resetDelta();
                 } else {
-                    for (auto &ptr: m_post) ptr->reset_value();
+                    for (const auto &ptr: m_post) ptr->resetValue();
                 }
             }
         }
 
-        virtual void reset_delta(){
+        virtual void resetDelta(){
             if(!m_delta.empty()){
                 m_delta.clear();
-                for(auto& p: m_pre) p->reset_delta();
+                for(const auto& p: m_pre) p->resetDelta();
             }
         }
 
@@ -147,15 +147,7 @@ namespace lazy {
         std::optional<T> m_value;
         std::map<Pointer, T> m_delta;
 
-        const bool m_optimizable;
-
-        explicit Operand(bool optimizable)
-                : m_f([](){return T();}), m_df(),
-                m_pre(), m_post(),
-                m_value(std::nullopt), m_delta(),
-                m_optimizable(optimizable){
-
-        }
+        bool m_optimizable;
     };
 
     template<typename T, typename ...Types>
