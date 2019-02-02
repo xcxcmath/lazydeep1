@@ -15,31 +15,33 @@
 
 using namespace lazy;
 using Mat = Matrix<float>;
+using Byte = unsigned char;
 
 constexpr Index TOTAL_SZ = 60'000;
 constexpr Index TEST_SZ = 10'000;
 constexpr Index PIXEL_SZ = 28 * 28;
 
-const char TRAIN_IMG[] = "../examples/MNIST/train-images.idx3-ubyte";
-const char TRAIN_LAB[] = "../examples/MNIST/train-labels.idx1-ubyte";
-const char TEST_IMG[] = "../examples/MNIST/t10k-images.idx3-ubyte";
-const char TEST_LAB[] = "../examples/MNIST/t10k-labels.idx1-ubyte";
+const char TRAIN_IMG_FILE[] = "../examples/MNIST/train-images.idx3-ubyte";
+const char TRAIN_LAB_FILE[] = "../examples/MNIST/train-labels.idx1-ubyte";
+const char TEST_IMG_FILE[] = "../examples/MNIST/t10k-images.idx3-ubyte";
+const char TEST_LAB_FILE[] = "../examples/MNIST/t10k-labels.idx1-ubyte";
 
-unsigned char images[TOTAL_SZ][PIXEL_SZ];
-unsigned char labels[TOTAL_SZ];
-unsigned char test_img[TEST_SZ][PIXEL_SZ];
-unsigned char test_lab[TEST_SZ];
+Byte train_img[TOTAL_SZ][PIXEL_SZ];
+Byte train_lab[TOTAL_SZ];
+Byte test_img[TEST_SZ][PIXEL_SZ];
+Byte test_lab[TEST_SZ];
 
-bool load_train();
-bool load_test();
+bool load_data();
 
-void build_train_input(Mat& input, Mat& sol, Index batch, Index batch_sz);
-void build_test_input(Mat& input, Mat& sol, Index iter, Index test_sz);
+void build_input(Byte img[][PIXEL_SZ], Byte lab[], Mat& input, Mat& sol, Index batch, Index batch_sz);
 
 int main() {
     /*
      * 3-layer NN example (MNIST)
      */
+
+    std::cout << std::fixed;
+    std::cout.precision(6);
 
     // Multi-threading
     // PLEASE CHANGE IT PROPERLY
@@ -47,7 +49,7 @@ int main() {
     std::cout << Eigen::nbThreads() << " thread(s) ready\n";
 
     std::cout << "Loading files..";
-    if(!load_train() || !load_test()){
+    if(!load_data()){
         std::cout << "failed\n";
         return 0;
     }
@@ -58,6 +60,7 @@ int main() {
     constexpr Index batch_sz = 100;
     constexpr Index total_batch = TOTAL_SZ / batch_sz;
     constexpr Index total_epoch = 15;
+    constexpr Index test_batch = TEST_SZ / batch_sz;
     constexpr Index middle_layer = 256;
 
     /*
@@ -65,7 +68,7 @@ int main() {
      * 784 -> 256 -> 256 -> 10
      */
 
-    // Placeholder : to insert labels
+    // Placeholder : to insert input and label
     auto x = make_placeholder<Mat>(); // input
     auto t = make_placeholder<Mat>(); // solution label
     auto dropout_attr = make_placeholder<Mat>(); // for dropout
@@ -119,7 +122,7 @@ int main() {
             Mat sol = Mat::Zero(10, batch_sz);
 
             // construct input and sol matrix
-            build_train_input(input, sol, batch, batch_sz);
+            build_input(train_img, train_lab, input, sol, batch, batch_sz);
 
             // training
             auto cost = training({{x, input},
@@ -130,7 +133,7 @@ int main() {
         // Average cost during one epoch
         auto avg_cost = total_cost(0) / total_batch;
 
-        std::cout << std::setw(8) << avg_cost << '\n';
+        std::cout << avg_cost << '\n';
     }
 
     std::chrono::duration<double> train_elapsed = std::chrono::system_clock::now() - train_start;
@@ -143,12 +146,11 @@ int main() {
     Placeholder<Mat>::applyPlaceholders({{dropout_attr, nn::dropout_attr_matrix<Mat>(0.5f, false)}});
 
     int total_correct = 0;
-    input = Mat::Zero(PIXEL_SZ, 100);
 
-    for(Index iter = 0; iter < 100; ++iter){
+    for(Index iter = 0; iter < test_batch; ++iter){
         // construct input
-        Mat sol = Mat::Zero(10, 100);
-        build_test_input(input, sol, iter, 100);
+        Mat sol = Mat::Zero(10, batch_sz);
+        build_input(test_img, test_lab, input, sol, iter, batch_sz);
         Placeholder<Mat>::applyPlaceholders({{x, input},
                                              {t, sol}});
 
@@ -166,82 +168,47 @@ int main() {
  * MNIST Loader
  */
 
-bool load_train(){
-    std::ifstream img_in(TRAIN_IMG, std::ios::binary);
-    std::ifstream lab_in(TRAIN_LAB, std::ios::binary);
-
-    if(!img_in.is_open() || !lab_in.is_open()) return false;
-
-    char temp[16];
-    img_in.read(temp, 16);
-    if(auto r = img_in.gcount(); r != 16){
-        std::cout << "something wrong with train temp " << r << '\n';
-    }
-    lab_in.read(temp, 8);
-    if(auto r = lab_in.gcount(); r != 8){
-        std::cout << "something wrong with train temp " << r << '\n';
-    }
-
-    img_in.read(reinterpret_cast<char*>(images), TOTAL_SZ * PIXEL_SZ);
-    if(auto r = img_in.gcount(); r != TOTAL_SZ * PIXEL_SZ){
-        std::cout << "something wrong with train image " << r << '\n';
+bool load_bytes(const std::string &file, char* arr, long dummy_sz, long read_sz, const std::string& name){
+    std::ifstream f(file, std::ios::binary);
+    if(!f.is_open()){
+        std::cout << "Failed to open " << name << '\n';
         return false;
     }
 
-    lab_in.read(reinterpret_cast<char*>(labels), TOTAL_SZ);
-    if(auto r = lab_in.gcount(); r != TOTAL_SZ){
-        std::cout << "something wrong with train label " << r << '\n';
+    f.seekg(dummy_sz, std::ios::beg);
+
+    f.read(arr, read_sz);
+    if(auto r = f.gcount(); r != read_sz){
+        std::cout << "Failed to read data of " << name << " (read " << r << " bytes after dummies)\n";
         return false;
     }
 
     return true;
 }
 
-bool load_test(){
-    std::ifstream img_in(TEST_IMG, std::ios::binary);
-    std::ifstream lab_in(TEST_LAB, std::ios::binary);
-
-    if(!img_in.is_open() || !lab_in.is_open()) return false;
-
-    char temp[16];
-    img_in.read(temp, 16);
-    if(auto r = img_in.gcount(); r != 16){
-        std::cout << "something wrong with test temp " << r << '\n';
-    }
-    lab_in.read(temp, 8);
-    if(auto r = lab_in.gcount(); r != 8){
-        std::cout << "something wrong with test temp " << r << '\n';
-    }
-
-    img_in.read(reinterpret_cast<char*>(test_img), TEST_SZ * PIXEL_SZ);
-    if(auto r = img_in.gcount(); r != TEST_SZ * PIXEL_SZ){
-        std::cout << "something wrong with test image " << r << '\n';
-        return false;
-    }
-
-    lab_in.read(reinterpret_cast<char*>(test_lab), TEST_SZ);
-    if(auto r = lab_in.gcount(); r != TEST_SZ){
-        std::cout << "something wrong with test label " << r << '\n';
-        return false;
-    }
-
-    return true;
+bool load_images(const std::string &file, Byte img[][PIXEL_SZ], long num, const std::string &name) {
+    return load_bytes(file, reinterpret_cast<char*>(img), 16, num * PIXEL_SZ, name);
 }
 
-void build_train_input(Mat& input, Mat& sol, Index batch, Index batch_sz){
+bool load_labels(const std::string &file, Byte *lab, long num, const std::string &name) {
+    return load_bytes(file, reinterpret_cast<char*>(lab), 8, num, name);
+}
+
+bool load_data() {
+    const bool openTrain = load_images(TRAIN_IMG_FILE, train_img, TOTAL_SZ, "train images") &&
+                           load_labels(TRAIN_LAB_FILE, train_lab, TOTAL_SZ, "train labels");
+    const bool openTest = load_images(TEST_IMG_FILE, test_img, TEST_SZ, "test images") &&
+                          load_labels(TEST_LAB_FILE, test_lab, TEST_SZ, "test labels");
+
+    return openTrain && openTest;
+}
+
+
+void build_input(Byte img[][PIXEL_SZ], Byte lab[], Mat& input, Mat& sol, Index batch, Index batch_sz){
     for(Index i = 0; i < batch_sz; ++i){
         for(Index p = 0; p < PIXEL_SZ; ++p){
-            input(p, i) = (images[batch*batch_sz+i][p]/255.f);
+            input(p, i) = (img[batch*batch_sz+i][p]/255.f);
         }
-        sol(labels[batch*batch_sz+i], i) = 1.f;
-    }
-}
-
-void build_test_input(Mat& input, Mat& sol, Index iter, Index test_sz){
-    for(Index i = 0; i < test_sz; ++i){
-        for(Index p = 0; p < PIXEL_SZ; ++p){
-            input(p, i) = (test_img[iter*test_sz+i][p]/255.f);
-        }
-        sol(test_lab[iter*test_sz+i], i) = 1.f;
+        sol(lab[batch*batch_sz+i], i) = 1.f;
     }
 }

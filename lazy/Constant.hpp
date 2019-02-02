@@ -12,8 +12,8 @@ namespace lazy {
     class Constant : public Operand<T> {
     public:
         template<typename ...Types>
-        explicit Constant(Types&& ...args): Operand<T>(T(args...)){
-            this->m_value = T(std::forward<Types>(args)...);
+        explicit Constant(Types&& ...args): Operand<T>(){
+            this->m_value.emplace(std::forward<Types>(args)...);
         }
 
         // Anything about Copy/Move is inhibited

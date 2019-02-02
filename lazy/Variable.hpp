@@ -13,7 +13,7 @@ namespace lazy {
     public:
         template<typename ...Types>
         explicit Variable(Types&& ...args): Operand<T>(){
-            this->m_value = T(std::forward<Types>(args)...);
+            this->m_value.emplace(std::forward<Types>(args)...);
             this->m_optimizable = true;
         }
 
